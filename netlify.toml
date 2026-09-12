@@ -3,6 +3,18 @@
   publish = "dist"
 
 [[redirects]]
+  from = "/auth/*"
+  to = "https://noa-api-wzmp.onrender.com/auth/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/products/*"
+  to = "https://noa-api-wzmp.onrender.com/products/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
