@@ -1,0 +1,7 @@
+{
+  "rewrites": [
+    { "source": "/auth/:path*", "destination": "https://noa-api-wzmp.onrender.com/auth/:path*" },
+    { "source": "/products/:path*", "destination": "https://noa-api-wzmp.onrender.com/products/:path*" },
+    { "source": "/((?!assets/).*)", "destination": "/index.html" }
+  ]
+}
