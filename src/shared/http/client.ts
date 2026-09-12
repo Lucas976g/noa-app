@@ -19,8 +19,20 @@ type ErrorEnvelope = {
   message?: string
 }
 
+const DEFAULT_API_URL = "http://localhost:3000"
+
+function apiOrigin(): string {
+  const fromEnv = import.meta.env.VITE_API_URL?.replace(/\/$/, "")
+  console.log(fromEnv)
+  return fromEnv && fromEnv.length > 0 ? fromEnv : DEFAULT_API_URL
+}
+
 export function resolveApiUrl(path: string): string {
-  return path.startsWith("/") ? path : `/${path}`
+  const normalized = path.startsWith("/") ? path : `/${path}`
+  if (import.meta.env.DEV) {
+    return normalized
+  }
+  return `${apiOrigin()}${normalized}`
 }
 
 function readErrorMessage(payload: unknown, fallback: string): string {
