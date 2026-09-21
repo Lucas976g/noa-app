@@ -1,4 +1,5 @@
 import type { CartItem } from "@/catalog/model"
+import type { DeliveryPaymentMethod } from "@/logistics/model"
 
 export type OrderStatusId =
   | "en-analisis"
@@ -20,6 +21,7 @@ export type Order = {
   status: OrderStatusId
   cancelReason?: string
   deliveryAddress?: string
+  observations?: string
 }
 
 export type CreateOrderInput = {
@@ -33,7 +35,10 @@ export type CreateOrderInput = {
 
 export type UpdateOrderInput = Partial<
   Pick<Order, "status" | "cancelReason">
->
+> & {
+  // Requerido al pasar a "entregado" en pedidos de contado.
+  deliveryPaymentMethod?: DeliveryPaymentMethod
+}
 
 // Order status config
 export type BadgeVariant =

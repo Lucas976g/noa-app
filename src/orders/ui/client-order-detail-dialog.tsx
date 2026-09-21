@@ -30,6 +30,7 @@ type ClientOrderDetailDialogProps = {
   onOpenChange: (open: boolean) => void
   order: Order
   delivery?: Delivery
+  onCancelOrder?: (order: Order) => void
 }
 
 export function ClientOrderDetailDialog({
@@ -37,6 +38,7 @@ export function ClientOrderDetailDialog({
   onOpenChange,
   order,
   delivery,
+  onCancelOrder,
 }: ClientOrderDetailDialogProps) {
   const status = getOrderStatus(order.status)
   const paymentLabel =
@@ -46,6 +48,8 @@ export function ClientOrderDetailDialog({
   const itemCount = order.items.length
   const isDelivered = order.status === "entregado" && Boolean(delivery)
   const isCancelled = order.status === "cancelado"
+  const canCancel =
+    order.status === "en-analisis" && onCancelOrder !== undefined
 
   const deliveryMethodLabel = delivery
     ? (DELIVERY_PAYMENT_METHODS.find((m) => m.id === delivery.paymentMethod)
@@ -83,33 +87,41 @@ export function ClientOrderDetailDialog({
           <div className="flex items-center gap-2 px-1 pb-3 text-muted-foreground">
             <IconReceipt className="size-3.5" aria-hidden />
             <span className="text-xs tracking-wider uppercase">
-              {itemCount} {itemCount === 1 ? "producto" : "productos"}
+              {itemCount === 0
+                ? "Productos"
+                : `${itemCount} ${itemCount === 1 ? "producto" : "productos"}`}
             </span>
           </div>
 
-          <ul className="flex flex-col divide-y divide-border rounded-lg border border-border">
-            {order.items.map((item) => {
-              const lineTotal = item.price * item.quantity
-              return (
-                <li
-                  key={item.productId}
-                  className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-0.5 px-3 py-2.5 text-sm"
-                >
-                  <div className="flex min-w-0 flex-col">
-                    <span className="truncate font-medium">{item.name}</span>
-                    <span className="text-xs text-muted-foreground tabular-nums">
-                      {item.quantity}{" "}
-                      {item.quantity === 1 ? "unidad" : "unidades"} ·{" "}
-                      {formatCurrency(item.price)} {item.unit}
+          {itemCount === 0 ? (
+            <div className="rounded-lg border border-border bg-muted/30 p-3 text-sm text-muted-foreground">
+              El detalle de productos de este pedido no está disponible.
+            </div>
+          ) : (
+            <ul className="flex flex-col divide-y divide-border rounded-lg border border-border">
+              {order.items.map((item) => {
+                const lineTotal = item.price * item.quantity
+                return (
+                  <li
+                    key={item.productId}
+                    className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-0.5 px-3 py-2.5 text-sm"
+                  >
+                    <div className="flex min-w-0 flex-col">
+                      <span className="truncate font-medium">{item.name}</span>
+                      <span className="text-xs text-muted-foreground tabular-nums">
+                        {item.quantity}{" "}
+                        {item.quantity === 1 ? "unidad" : "unidades"} ·{" "}
+                        {formatCurrency(item.price)} {item.unit}
+                      </span>
+                    </div>
+                    <span className="self-center text-right font-medium tabular-nums">
+                      {formatCurrency(lineTotal)}
                     </span>
-                  </div>
-                  <span className="self-center text-right font-medium tabular-nums">
-                    {formatCurrency(lineTotal)}
-                  </span>
-                </li>
-              )
-            })}
-          </ul>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
 
           <div className="flex items-center justify-between px-1 pt-4">
             <span className="text-sm text-muted-foreground">Subtotal</span>
@@ -118,6 +130,15 @@ export function ClientOrderDetailDialog({
             </span>
           </div>
         </div>
+
+        {order.observations ? (
+          <div className="flex flex-col gap-0.5 rounded-lg border border-border bg-muted/30 p-3 text-sm">
+            <span className="text-xs tracking-wider text-muted-foreground uppercase">
+              Observaciones
+            </span>
+            <span className="text-foreground">{order.observations}</span>
+          </div>
+        ) : null}
 
         {isDelivered && delivery ? (
           <>
@@ -163,7 +184,9 @@ export function ClientOrderDetailDialog({
                     className="size-3.5 shrink-0 translate-y-0.5"
                     aria-hidden
                   />
-                  <span className="text-foreground">{delivery.observations}</span>
+                  <span className="text-foreground">
+                    {delivery.observations}
+                  </span>
                 </div>
               ) : null}
             </div>
@@ -179,7 +202,7 @@ export function ClientOrderDetailDialog({
                 aria-hidden
               />
               <div className="flex flex-col gap-0.5">
-                <span className="text-xs tracking-wider uppercase text-destructive">
+                <span className="text-xs tracking-wider text-destructive uppercase">
                   Motivo de cancelación
                 </span>
                 <span className="text-foreground">{order.cancelReason}</span>
@@ -201,6 +224,15 @@ export function ClientOrderDetailDialog({
         ) : null}
 
         <DialogFooter>
+          {canCancel ? (
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => onCancelOrder(order)}
+            >
+              Cancelar pedido
+            </Button>
+          ) : null}
           <Button
             type="button"
             variant="outline"

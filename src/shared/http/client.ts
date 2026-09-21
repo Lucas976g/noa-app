@@ -15,7 +15,7 @@ type SuccessEnvelope<T> = {
 
 type ErrorEnvelope = {
   success?: false
-  error?: string
+  error?: string | { message?: string; code?: string }
   message?: string
 }
 
@@ -30,6 +30,14 @@ function readErrorMessage(payload: unknown, fallback: string): string {
   const envelope = payload as ErrorEnvelope
   if (typeof envelope.error === "string" && envelope.error.length > 0) {
     return envelope.error
+  }
+  if (
+    envelope.error &&
+    typeof envelope.error === "object" &&
+    typeof envelope.error.message === "string" &&
+    envelope.error.message.length > 0
+  ) {
+    return envelope.error.message
   }
   if (typeof envelope.message === "string" && envelope.message.length > 0) {
     return envelope.message
