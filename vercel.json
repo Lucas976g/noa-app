@@ -4,6 +4,7 @@
     { "source": "/products/:path*", "destination": "https://noa-api-wzmp.onrender.com/products/:path*" },
     { "source": "/orders/:path*", "destination": "https://noa-api-wzmp.onrender.com/orders/:path*" },
     { "source": "/clients/:path*", "destination": "https://noa-api-wzmp.onrender.com/clients/:path*" },
+    { "source": "/collections/:path*", "destination": "https://noa-api-wzmp.onrender.com/collections/:path*" },
     { "source": "/((?!assets/).*)", "destination": "/index.html" }
   ]
 }

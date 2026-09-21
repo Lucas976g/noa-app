@@ -35,6 +35,10 @@ export default defineConfig(({ mode }) => {
           target: apiUrl,
           changeOrigin: true,
         },
+        "/collections": {
+          target: apiUrl,
+          changeOrigin: true,
+        },
       },
     },
   }

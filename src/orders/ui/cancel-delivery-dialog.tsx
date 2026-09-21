@@ -28,6 +28,8 @@ type CancelDeliveryDialogProps = {
     reason: DeliveryCancelReason
     observations: string
   }) => void
+  isSubmitting?: boolean
+  error?: string | null
 }
 
 export function CancelDeliveryDialog({
@@ -36,21 +38,22 @@ export function CancelDeliveryDialog({
   shortId,
   clientName,
   onConfirm,
+  isSubmitting = false,
+  error = null,
 }: CancelDeliveryDialogProps) {
   const [reason, setReason] = useState<DeliveryCancelReason | "">("")
   const [observations, setObservations] = useState("")
 
   const trimmedObservations = observations.trim()
-  const canConfirm = reason !== ""
+  const canConfirm = reason !== "" && !isSubmitting
 
   const handleConfirm = () => {
     if (!canConfirm) return
     onConfirm({ reason, observations: trimmedObservations })
-    setReason("")
-    setObservations("")
   }
 
   const handleOpenChange = (next: boolean) => {
+    if (isSubmitting) return
     if (!next) {
       setReason("")
       setObservations("")
@@ -125,10 +128,17 @@ export function CancelDeliveryDialog({
           </FieldDescription>
         </Field>
 
+        {error ? (
+          <p role="alert" className="text-sm text-destructive">
+            {error}
+          </p>
+        ) : null}
+
         <DialogFooter>
           <Button
             type="button"
             variant="ghost"
+            disabled={isSubmitting}
             onClick={() => handleOpenChange(false)}
           >
             Volver
@@ -139,7 +149,7 @@ export function CancelDeliveryDialog({
             disabled={!canConfirm}
             onClick={handleConfirm}
           >
-            Confirmar cancelación
+            {isSubmitting ? "Cancelando..." : "Confirmar cancelación"}
           </Button>
         </DialogFooter>
       </DialogContent>

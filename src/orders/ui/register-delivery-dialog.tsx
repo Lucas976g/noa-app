@@ -35,7 +35,8 @@ type RegisterDeliveryDialogProps = {
   clientName: string
   deliveryAddress?: string
   subtotal: number
-  availableBalance: number
+  // Sin dato (el backend no lo expone a logística) se oculta el saldo.
+  availableBalance?: number
   orderPaymentMethod: PaymentMethod
   onConfirm: (input: {
     paymentMethod: DeliveryPaymentMethod
@@ -43,6 +44,8 @@ type RegisterDeliveryDialogProps = {
     debtAmount: number
     observations?: string
   }) => void
+  isSubmitting?: boolean
+  error?: string | null
 }
 
 export function RegisterDeliveryDialog({
@@ -55,6 +58,8 @@ export function RegisterDeliveryDialog({
   availableBalance,
   orderPaymentMethod,
   onConfirm,
+  isSubmitting = false,
+  error = null,
 }: RegisterDeliveryDialogProps) {
   const isCtaCteOrder = orderPaymentMethod === "cuenta-corriente"
   const [paymentMethod, setPaymentMethod] =
@@ -75,10 +80,13 @@ export function RegisterDeliveryDialog({
     ? Math.max(0, subtotal - receivedAmount)
     : 0
   const hasDebt = debtAmount > 0
-  const afterBalance = hasValidReceivedAmount
-    ? availableBalance + receivedAmount
-    : availableBalance
-  const canConfirm = hasValidReceivedAmount
+  const afterBalance =
+    availableBalance === undefined
+      ? undefined
+      : hasValidReceivedAmount
+        ? availableBalance + receivedAmount
+        : availableBalance
+  const canConfirm = hasValidReceivedAmount && !isSubmitting
 
   const handlePaymentMethodChange = (next: DeliveryPaymentMethod) => {
     setPaymentMethod(next)
@@ -100,6 +108,7 @@ export function RegisterDeliveryDialog({
   }
 
   const handleOpenChange = (next: boolean) => {
+    if (isSubmitting) return
     if (!next) {
       setPaymentMethod("efectivo")
       setReceivedAmountText(subtotal.toString())
@@ -142,17 +151,19 @@ export function RegisterDeliveryDialog({
               {formatCurrency(subtotal)}
             </span>
           </div>
-          <div className="flex items-center justify-between text-sm">
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <IconBuildingWarehouse className="size-3.5" aria-hidden />
-              <span className="text-xs tracking-wider uppercase">
-                Saldo disponible
+          {availableBalance !== undefined ? (
+            <div className="flex items-center justify-between text-sm">
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <IconBuildingWarehouse className="size-3.5" aria-hidden />
+                <span className="text-xs tracking-wider uppercase">
+                  Saldo disponible
+                </span>
+              </div>
+              <span className="font-medium tabular-nums">
+                {formatCurrency(availableBalance)}
               </span>
             </div>
-            <span className="font-medium tabular-nums">
-              {formatCurrency(availableBalance)}
-            </span>
-          </div>
+          ) : null}
           <div className="flex items-center justify-between text-sm">
             <div className="flex items-center gap-2 text-muted-foreground">
               <IconWallet className="size-3.5" aria-hidden />
@@ -228,7 +239,7 @@ export function RegisterDeliveryDialog({
             <Badge variant={hasDebt ? "secondary" : "outline"}>
               Deuda a registrar: {formatCurrency(debtAmount)}
             </Badge>
-            {isCtaCteOrder ? (
+            {isCtaCteOrder && afterBalance !== undefined ? (
               <Badge variant="secondary">
                 Saldo después: {formatCurrency(afterBalance)}
               </Badge>
@@ -247,16 +258,23 @@ export function RegisterDeliveryDialog({
           />
         </Field>
 
+        {error ? (
+          <p role="alert" className="text-sm text-destructive">
+            {error}
+          </p>
+        ) : null}
+
         <DialogFooter>
           <Button
             type="button"
             variant="ghost"
+            disabled={isSubmitting}
             onClick={() => handleOpenChange(false)}
           >
             Cancelar
           </Button>
           <Button type="button" onClick={handleConfirm} disabled={!canConfirm}>
-            Finalizar entrega
+            {isSubmitting ? "Registrando..." : "Finalizar entrega"}
           </Button>
         </DialogFooter>
       </DialogContent>

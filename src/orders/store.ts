@@ -26,6 +26,13 @@ type OrdersState = {
   loadOrders: () => Promise<void>
   createOrder: (input: CreateOrderInput) => Promise<Order>
   updateOrder: (id: string, input: UpdateOrderInput) => Promise<Order>
+  // Refleja un cambio que el backend ya confirmó por otra vía (registrar o
+  // cancelar una entrega): no hace ninguna petición.
+  applyOrderStatus: (
+    id: string,
+    status: Extract<OrderStatusId, "entregado" | "cancelado">,
+    cancelReason?: string
+  ) => void
 }
 
 const errorMessage = (error: unknown): string =>
@@ -141,6 +148,22 @@ export const useOrdersStore = create<OrdersState>()(
           orders: state.orders.map((o) => (o.id === id ? updated : o)),
         }))
         return updated
+      },
+      applyOrderStatus: (id, status, cancelReason) => {
+        changedDuringLoad.add(id)
+        set((state) => ({
+          orders: state.orders.map((o) =>
+            o.id === id
+              ? {
+                  ...o,
+                  status,
+                  cancelReason:
+                    status === "cancelado" ? cancelReason : undefined,
+                  updatedAt: new Date().toISOString(),
+                }
+              : o
+          ),
+        }))
       },
     }),
     {
