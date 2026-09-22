@@ -8,7 +8,6 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { checkAccount } from "@/clients/api"
 import type { Account, AccountBlockReason } from "@/clients/model"
 import { OrderBlockedDialog } from "@/clients/ui/order-blocked-dialog"
-import { displayName } from "@/auth/model"
 import { useAuthStore } from "@/auth/session-store"
 import { useOrdersStore } from "@/orders/store"
 import { PAYMENT_METHODS, type PaymentMethod } from "@/orders/model"
@@ -42,6 +41,7 @@ export function CartBody({ onClose }: CartBodyProps) {
     reason: AccountBlockReason
     shortfall: number
     account: Account
+    totalAmount: number
   } | null>(null)
 
   const totalQuantity = items.reduce((acc, i) => acc + i.quantity, 0)
@@ -58,12 +58,13 @@ export function CartBody({ onClose }: CartBodyProps) {
     setIsChecking(true)
     try {
       if (paymentMethod === "cuenta-corriente") {
-        const { result, account } = await checkAccount(subtotal)
+        const { result, account, totalAmount } = await checkAccount(items)
         if (!result.ok) {
           setBlocked({
             reason: result.reason,
             shortfall: result.shortfall,
             account,
+            totalAmount,
           })
           return
         }
@@ -72,13 +73,7 @@ export function CartBody({ onClose }: CartBodyProps) {
       if (!user) {
         throw new Error("Iniciá sesión para confirmar el pedido.")
       }
-      await createOrder({
-        userId: user.id,
-        userName: displayName(user),
-        items,
-        subtotal,
-        paymentMethod,
-      })
+      await createOrder({ items, paymentMethod })
       toast.success("Pedido confirmado", {
         description: `Pedido de ${formatCurrency(subtotal)} registrado.`,
       })
@@ -203,7 +198,7 @@ export function CartBody({ onClose }: CartBodyProps) {
           }}
           reason={blocked.reason}
           account={blocked.account}
-          subtotal={subtotal}
+          subtotal={blocked.totalAmount}
           shortfall={blocked.shortfall}
         />
       ) : null}

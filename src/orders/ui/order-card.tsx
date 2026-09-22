@@ -22,7 +22,10 @@ export function OrderCard({ order, onShowDetails, onCancel }: OrderCardProps) {
   const canCancel = order.status === "en-analisis" && onCancel !== undefined
 
   return (
-    <Card>
+    <Card
+      className="cursor-pointer transition-colors hover:bg-muted/40"
+      onClick={() => onShowDetails(order)}
+    >
       <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 flex-col gap-2">
           <div className="flex flex-wrap items-center gap-2">
@@ -59,7 +62,10 @@ export function OrderCard({ order, onShowDetails, onCancel }: OrderCardProps) {
                 type="button"
                 variant="destructive"
                 size="sm"
-                onClick={() => onCancel(order)}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onCancel(order)
+                }}
                 aria-label={`Cancelar pedido ${shortId}`}
               >
                 Cancelar pedido
@@ -69,7 +75,10 @@ export function OrderCard({ order, onShowDetails, onCancel }: OrderCardProps) {
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => onShowDetails(order)}
+              onClick={(e) => {
+                e.stopPropagation()
+                onShowDetails(order)
+              }}
               aria-label={`Mostrar detalles del pedido ${shortId}`}
             >
               Mostrar detalles

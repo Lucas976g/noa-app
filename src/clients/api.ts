@@ -1,3 +1,5 @@
+import type { CartItem } from "@/catalog/model"
+import { validateOrder } from "@/orders/api"
 import { apiFetch } from "@/shared/http/client"
 import type { Account, AccountBlockReason, AccountCheckResult } from "./model"
 
@@ -24,28 +26,45 @@ export const fetchMyAccount = async (): Promise<Account | null> => {
   }
 }
 
-// El backend no expone un endpoint de validación: la valida al crear el pedido
-// (POST /orders responde 400 "RECHAZADO: ..."). Para avisar antes de confirmar
-// se evalúa contra la cuenta corriente de GET /clients/profile.
+// POST /orders/validate prevalida el pedido sin persistir nada: confirma que
+// los productos sigan disponibles y, en cuenta corriente, si el saldo
+// alcanza. Se pide en paralelo el perfil, para tener el límite de crédito y
+// poder distinguir "excede límite" de "saldo insuficiente".
 export const checkAccount = async (
-  subtotal: number
-): Promise<{ result: AccountCheckResult; account: Account }> => {
-  const account = await fetchMyAccount()
+  items: ReadonlyArray<Pick<CartItem, "productId" | "quantity">>
+): Promise<{
+  result: AccountCheckResult
+  account: Account
+  totalAmount: number
+}> => {
+  const [validation, account] = await Promise.all([
+    validateOrder({ paymentMethod: "cuenta-corriente", items }),
+    fetchMyAccount(),
+  ])
   if (!account) {
     throw new Error("No tenés cuenta corriente habilitada.")
   }
-  if (subtotal <= account.availableBalance) {
-    return { result: { ok: true }, account }
+  if (validation.valid) {
+    return {
+      result: { ok: true },
+      account,
+      totalAmount: validation.totalAmount,
+    }
   }
+  const availableBalance =
+    validation.availableBalance ?? account.availableBalance
   const reason: AccountBlockReason =
-    subtotal > account.creditLimit ? "excede-limite" : "saldo-insuficiente"
+    validation.totalAmount > account.creditLimit
+      ? "excede-limite"
+      : "saldo-insuficiente"
   return {
     result: {
       ok: false,
       reason,
-      shortfall: subtotal - account.availableBalance,
+      shortfall: validation.totalAmount - availableBalance,
     },
     account,
+    totalAmount: validation.totalAmount,
   }
 }
 

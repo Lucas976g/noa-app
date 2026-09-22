@@ -7,6 +7,7 @@ import {
   createOrder as createOrderRequest,
   deliverOrder as deliverOrderRequest,
   fetchMyOrders,
+  fetchOrder,
   fetchOrders,
   processOrder as processOrderRequest,
 } from "./api"
@@ -26,29 +27,21 @@ type OrdersState = {
   loadOrders: () => Promise<void>
   createOrder: (input: CreateOrderInput) => Promise<Order>
   updateOrder: (id: string, input: UpdateOrderInput) => Promise<Order>
-  // Refleja un cambio que el backend ya confirmó por otra vía (registrar o
-  // cancelar una entrega): no hace ninguna petición.
-  applyOrderStatus: (
-    id: string,
-    status: Extract<OrderStatusId, "entregado" | "cancelado">,
-    cancelReason?: string
-  ) => void
+  // Trae el detalle completo (con items) de un pedido y lo mezcla en el
+  // state: los listados no traen items, solo GET /orders/:id.
+  hydrateOrder: (id: string) => Promise<Order>
 }
 
 const errorMessage = (error: unknown): string =>
   error instanceof Error ? error.message : "No pudimos cargar los pedidos."
 
-// El backend no devuelve items, nombre de cliente ni dirección: se conservan
-// los datos locales del cache cuando el pedido ya lo teníamos.
+// Los listados (GET /orders, GET /orders/my-orders) no traen items a
+// propósito, para no sobrecargar la consulta con joins a productos: se
+// conservan los que ya se conocían por una carga de detalle o por la
+// creación del pedido.
 const mergeWithCached = (fetched: Order, cached?: Order): Order => {
-  if (!cached) return fetched
-  return {
-    ...fetched,
-    items: fetched.items.length > 0 ? fetched.items : cached.items,
-    userName: fetched.userName || cached.userName,
-    deliveryAddress: fetched.deliveryAddress ?? cached.deliveryAddress,
-    cancelReason: fetched.cancelReason ?? cached.cancelReason,
-  }
+  if (!cached || fetched.items.length > 0) return fetched
+  return { ...fetched, items: cached.items }
 }
 
 // Pedidos creados o modificados mientras una carga estaba en vuelo: la
@@ -99,13 +92,9 @@ export const useOrdersStore = create<OrdersState>()(
         }
       },
       createOrder: async (input) => {
-        const created = await createOrderRequest(input)
-        const order: Order = {
-          ...created,
-          userName: input.userName,
-          deliveryAddress: input.deliveryAddress,
-          updatedAt: created.createdAt,
-        }
+        // La respuesta ya trae clientName, deliveryAddress e items
+        // calculados por el backend: no hace falta completarlos a mano.
+        const order = await createOrderRequest(input)
         changedDuringLoad.add(order.id)
         set((state) => ({ orders: [order, ...state.orders] }))
         return order
@@ -116,54 +105,41 @@ export const useOrdersStore = create<OrdersState>()(
           throw new Error("Pedido no encontrado.")
         }
 
-        const status = input.status ?? current.status
         let remote: Order
-        if (status === "en-proceso") {
+        if (input.status === "en-proceso") {
           remote = await processOrderRequest(id)
-        } else if (status === "cancelado") {
-          remote = await cancelOrderRequest(id)
-        } else if (status === "entregado") {
-          const method =
-            input.deliveryPaymentMethod ??
-            (current.paymentMethod === "cuenta-corriente"
-              ? "imputacion-cta-cte"
-              : undefined)
-          if (!method) {
-            throw new Error(
-              "Indicá el método de cobro para entregar el pedido."
-            )
-          }
-          remote = await deliverOrderRequest(id, method)
+        } else if (input.status === "cancelado") {
+          remote = await cancelOrderRequest(id, {
+            reason: input.reason,
+            observations: input.observations,
+          })
+        } else if (input.status === "entregado") {
+          remote = await deliverOrderRequest(id, {
+            paymentMethod: input.paymentMethod,
+            observations: input.observations,
+          })
         } else {
           throw new Error("El pedido no puede volver a este estado.")
         }
 
-        const updated: Order = {
-          ...mergeWithCached(remote, current),
-          cancelReason: status === "cancelado" ? input.cancelReason : undefined,
-          updatedAt: new Date().toISOString(),
-        }
+        const updated = mergeWithCached(remote, current)
         changedDuringLoad.add(id)
         set((state) => ({
           orders: state.orders.map((o) => (o.id === id ? updated : o)),
         }))
         return updated
       },
-      applyOrderStatus: (id, status, cancelReason) => {
+      hydrateOrder: async (id) => {
+        const remote = await fetchOrder(id)
+        const current = get().orders.find((o) => o.id === id)
+        const updated = mergeWithCached(remote, current)
         changedDuringLoad.add(id)
         set((state) => ({
-          orders: state.orders.map((o) =>
-            o.id === id
-              ? {
-                  ...o,
-                  status,
-                  cancelReason:
-                    status === "cancelado" ? cancelReason : undefined,
-                  updatedAt: new Date().toISOString(),
-                }
-              : o
-          ),
+          orders: state.orders.some((o) => o.id === id)
+            ? state.orders.map((o) => (o.id === id ? updated : o))
+            : [updated, ...state.orders],
         }))
+        return updated
       },
     }),
     {
