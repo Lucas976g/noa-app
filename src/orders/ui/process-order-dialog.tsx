@@ -25,8 +25,8 @@ type ProcessOrderDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   order: Order
-  onApprove: () => void
-  onCancel: (reason: string, observations?: string) => void
+  onApprove: () => Promise<void> | void
+  onCancel: (reason: string, observations?: string) => Promise<void> | void
 }
 
 type Mode = "default" | "cancel"
@@ -43,6 +43,7 @@ export function ProcessOrderDialog({
   const [observations, setObservations] = useState("")
   const [details, setDetails] = useState<Order>(order)
   const [loadingDetails, setLoadingDetails] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
     if (!open || !order?.id) return
@@ -50,6 +51,7 @@ export function ProcessOrderDialog({
     setMode("default")
     setReason("")
     setObservations("")
+    setSubmitting(false)
     let active = true
     setLoadingDetails(true)
     void fetchOrderById(order.id)
@@ -77,8 +79,28 @@ export function ProcessOrderDialog({
   const trimmedObservations = observations.trim()
   const canConfirmCancel = trimmedReason.length > 0
 
+  const handleApproveClick = async () => {
+    if (submitting) return
+    setSubmitting(true)
+    try {
+      await onApprove()
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleCancelClick = async () => {
+    if (submitting || !canConfirmCancel) return
+    setSubmitting(true)
+    try {
+      await onCancel(trimmedReason, trimmedObservations)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={submitting ? undefined : onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <div className="flex flex-col gap-1.5">
@@ -165,8 +187,9 @@ export function ProcessOrderDialog({
                   id="cancel-reason"
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
-                  placeholder="Ej: No lo quiso, sin stock, dirección incorrecta, etc."
+                  placeholder="Ej: Falta de Stock, error en la carga del pedido, dirección incorrecta, etc."
                   rows={2}
+                  disabled={submitting}
                   autoFocus
                 />
                 <FieldDescription>
@@ -182,8 +205,9 @@ export function ProcessOrderDialog({
                   id="cancel-observations"
                   value={observations}
                   onChange={(e) => setObservations(e.target.value)}
-                  placeholder="Ej: Comprará la próxima semana..."
+                  placeholder="Ej: El cliente indicó que volverá a cargar el pedido la próxima semana, verificar saldo pendiente, etc."
                   rows={2}
+                  disabled={submitting}
                 />
               </Field>
             </div>
@@ -196,12 +220,24 @@ export function ProcessOrderDialog({
               <Button
                 type="button"
                 variant="outline"
+                disabled={submitting}
                 onClick={() => setMode("cancel")}
               >
                 Cancelar pedido
               </Button>
-              <Button type="button" onClick={onApprove}>
-                Aprobar pedido
+              <Button
+                type="button"
+                disabled={submitting || loadingDetails}
+                onClick={() => void handleApproveClick()}
+              >
+                {submitting ? (
+                  <>
+                    <Spinner data-icon="inline-start" />
+                    Aprobando…
+                  </>
+                ) : (
+                  "Aprobar pedido"
+                )}
               </Button>
             </>
           ) : (
@@ -209,6 +245,7 @@ export function ProcessOrderDialog({
               <Button
                 type="button"
                 variant="ghost"
+                disabled={submitting}
                 onClick={() => {
                   setMode("default")
                   setReason("")
@@ -220,10 +257,17 @@ export function ProcessOrderDialog({
               <Button
                 type="button"
                 variant="destructive"
-                disabled={!canConfirmCancel}
-                onClick={() => onCancel(trimmedReason, trimmedObservations)}
+                disabled={!canConfirmCancel || submitting}
+                onClick={() => void handleCancelClick()}
               >
-                Confirmar cancelación
+                {submitting ? (
+                  <>
+                    <Spinner data-icon="inline-start" />
+                    Cancelando…
+                  </>
+                ) : (
+                  "Confirmar cancelación"
+                )}
               </Button>
             </>
           )}

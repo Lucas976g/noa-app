@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { IconChartBar, IconTruck } from "@tabler/icons-react"
+import { IconChartBar, IconTruck, IconX } from "@tabler/icons-react"
 
 import { Badge } from "@/components/ui/badge"
 import {
@@ -24,6 +24,14 @@ import type { Order, OrderStatusId, PaymentMethod } from "@/orders/model"
 import { getOrderStatus, PAYMENT_METHODS } from "@/orders/model"
 import { formatCurrency } from "@/shared/lib/format"
 import { Button } from "@/components/ui/button"
+
+const STATUS_FILTER_LABELS: Record<OrderStatusId | "all", string> = {
+  all: "Todos",
+  "en-analisis": "En análisis",
+  "en-proceso": "En proceso",
+  entregado: "Entregados",
+  cancelado: "Cancelados",
+}
 
 export function AdminMonitoreoPage() {
   const [orders, setOrders] = useState<Order[]>([])
@@ -174,34 +182,39 @@ export function AdminMonitoreoPage() {
           </div>
 
           <div className="flex items-center justify-between pt-2 text-xs text-muted-foreground border-t border-border/60">
-            <span>Filtro actual: <strong className="text-foreground uppercase">{statusFilter}</strong></span>
+            <span>Filtro actual: <strong className="text-foreground uppercase">{STATUS_FILTER_LABELS[statusFilter]}</strong></span>
             {statusFilter !== "all" && (
-              <button 
+              <Button 
                 type="button" 
+                variant="outline"
+                size="sm"
                 onClick={() => setStatusFilter("all")} 
-                className="text-primary hover:underline font-medium"
+                className="h-6 px-2 text-xs font-medium gap-1 hover:bg-muted"
               >
+                <IconX className="size-3" />
                 Limpiar filtro de estado
-              </button>
+              </Button>
             )}
           </div>
         </div>
 
-        {/* Resumen de Pagos y Filtro Rápido */}
+        {/* Métodos de Pago y Filtro Rápido */}
         <div className="rounded-xl border border-border bg-card p-4 flex flex-col justify-between">
           <div className="flex items-center justify-between mb-2">
-            <h2 className="text-xs font-semibold tracking-wider uppercase text-muted-foreground">Resumen de Pagos</h2>
-            <span className="text-lg font-bold">Total: {totalOrders}</span>
+            <h2 className="text-xs font-semibold tracking-wider uppercase text-muted-foreground">Métodos de Pago</h2>
+            <span className="text-sm font-semibold text-muted-foreground">
+              Pedidos totales: <span className="text-foreground text-base font-bold">{totalOrders}</span>
+            </span>
           </div>
 
           <div className="grid grid-cols-2 gap-3 my-2">
             <div className="rounded-lg bg-muted/40 p-3 flex flex-col justify-between border border-border/50">
               <span className="text-[11px] text-muted-foreground font-medium">Cuenta Corriente</span>
-              <span className="text-xl font-bold mt-1 text-primary">{countCC}</span>
+              <span className="text-xl font-bold mt-1 text-foreground">{countCC}</span>
             </div>
             <div className="rounded-lg bg-muted/40 p-3 flex flex-col justify-between border border-border/50">
               <span className="text-[11px] text-muted-foreground font-medium">Contado</span>
-              <span className="text-xl font-bold mt-1">{countContado}</span>
+              <span className="text-xl font-bold mt-1 text-foreground">{countContado}</span>
             </div>
           </div>
 
@@ -279,11 +292,11 @@ export function AdminMonitoreoPage() {
             </EmptyHeader>
           </Empty>
         ) : (
-          <div className="rounded-lg border border-border overflow-hidden">
+          <div className="rounded-xl border border-border overflow-hidden shadow-xs">
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead>ID</TableHead>
+                <TableRow className="bg-muted/30">
+                  <TableHead className="w-28">ID</TableHead>
                   <TableHead>Cliente</TableHead>
                   <TableHead>Dirección</TableHead>
                   <TableHead className="text-right">Total</TableHead>
@@ -299,17 +312,17 @@ export function AdminMonitoreoPage() {
                   )
 
                   return (
-                    <TableRow key={order.id}>
-                      <TableCell className="font-mono text-xs uppercase">
-                        {order.id.slice(0, 8)}
+                    <TableRow key={order.id} className="hover:bg-muted/40 transition-colors">
+                      <TableCell className="font-mono text-xs font-semibold text-muted-foreground">
+                        #{order.id.slice(0, 8).toUpperCase()}
                       </TableCell>
-                      <TableCell className="font-medium">
+                      <TableCell className="font-medium text-foreground">
                         {order.userName}
                       </TableCell>
                       <TableCell className="text-muted-foreground text-xs">
                         {order.deliveryAddress ?? "Sin dirección especificada"}
                       </TableCell>
-                      <TableCell className="text-right font-medium tabular-nums">
+                      <TableCell className="text-right font-bold tabular-nums text-foreground">
                         {formatCurrency(order.subtotal)}
                       </TableCell>
                       <TableCell>

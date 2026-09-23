@@ -24,6 +24,7 @@ import { fetchOrders, updateOrder } from "@/orders/api"
 import type { Order, OrderStatusId, PaymentMethod } from "@/orders/model"
 import { getOrderStatus, PAYMENT_METHODS } from "@/orders/model"
 import { formatCurrency } from "@/shared/lib/format"
+import { toast } from "sonner"
 
 export function AdminLogisticaPage() {
   const [orders, setOrders] = useState<Order[]>([])
@@ -60,21 +61,48 @@ export function AdminLogisticaPage() {
   }, [])
 
   const handleRegisterDelivery = async (id: string) => {
-    await updateOrder(id, { status: "entregado" })
-    setOrders((current) =>
-      current.map((order) =>
-        order.id === id ? { ...order, status: "entregado" } : order
+    try {
+      await updateOrder(id, { status: "entregado" })
+      setOrders((current) =>
+        current.map((order) =>
+          order.id === id ? { ...order, status: "entregado" } : order
+        )
       )
-    )
+      toast.success("Entrega registrada", {
+        description: `El pedido #${id.slice(0, 8).toUpperCase()} se marcó como entregado.`,
+      })
+    } catch (err) {
+      toast.error("Error al registrar entrega", {
+        description:
+          err instanceof Error
+            ? err.message
+            : "No pudimos registrar la entrega.",
+      })
+    }
   }
 
   const handleCancelDelivery = async (id: string) => {
-    await updateOrder(id, { status: "cancelado", cancelReason: "Cancelado desde monitoreo" })
-    setOrders((current) =>
-      current.map((order) =>
-        order.id === id ? { ...order, status: "cancelado" } : order
+    try {
+      await updateOrder(id, {
+        status: "cancelado",
+        cancelReason: "Cancelado desde monitoreo",
+      })
+      setOrders((current) =>
+        current.map((order) =>
+          order.id === id ? { ...order, status: "cancelado" } : order
+        )
       )
-    )
+      toast.success("Entrega cancelada", {
+        description: `El pedido #${id.slice(0, 8).toUpperCase()} fue cancelado.`,
+      })
+    } catch (err) {
+      toast.error("Error al cancelar entrega", {
+        description:
+          err instanceof Error
+            ? err.message
+            : "No pudimos cancelar la entrega.",
+      })
+    }
   }
 
   // Filtrado de pedidos
