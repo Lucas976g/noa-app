@@ -32,6 +32,7 @@ export function OrderBlockedDialog({
   reason,
   account,
   subtotal,
+  shortfall,
 }: OrderBlockedDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -67,6 +68,9 @@ export function OrderBlockedDialog({
             label="Límite de crédito"
             value={formatCurrency(account.creditLimit)}
           />
+          {shortfall > 0 ? (
+            <Row label="Te faltan" value={formatCurrency(shortfall)} />
+          ) : null}
         </dl>
 
         <DialogFooter>

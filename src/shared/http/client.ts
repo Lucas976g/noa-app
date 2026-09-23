@@ -1,10 +1,12 @@
 export class ApiError extends Error {
   readonly status: number
+  readonly code?: string
 
-  constructor(message: string, status: number) {
+  constructor(message: string, status: number, code?: string) {
     super(message)
     this.name = "ApiError"
     this.status = status
+    this.code = code
   }
 }
 
@@ -13,28 +15,46 @@ type SuccessEnvelope<T> = {
   data: T
 }
 
+// El backend manda el mismo error en la raíz (code, message) y anidado en
+// error (para compatibilidad con clientes viejos). Ya no manda estructuras
+// crudas de Zod: en validaciones responde VALIDATION_ERROR con un mensaje
+// legible del primer campo inválido.
 type ErrorEnvelope = {
   success?: false
-  error?: string
+  code?: string
   message?: string
+  error?: string | { message?: string; code?: string }
 }
 
 export function resolveApiUrl(path: string): string {
   return path.startsWith("/") ? path : `/${path}`
 }
 
-function readErrorMessage(payload: unknown, fallback: string): string {
+function readError(
+  payload: unknown,
+  fallback: string
+): { message: string; code?: string } {
   if (!payload || typeof payload !== "object") {
-    return fallback
+    return { message: fallback }
   }
   const envelope = payload as ErrorEnvelope
   if (typeof envelope.error === "string" && envelope.error.length > 0) {
-    return envelope.error
+    return { message: envelope.error, code: envelope.code }
+  }
+  if (envelope.error && typeof envelope.error === "object") {
+    const message =
+      typeof envelope.error.message === "string" &&
+      envelope.error.message.length > 0
+        ? envelope.error.message
+        : undefined
+    if (message) {
+      return { message, code: envelope.error.code ?? envelope.code }
+    }
   }
   if (typeof envelope.message === "string" && envelope.message.length > 0) {
-    return envelope.message
+    return { message: envelope.message, code: envelope.code }
   }
-  return fallback
+  return { message: fallback }
 }
 
 export async function apiFetch<T>(
@@ -61,19 +81,18 @@ export async function apiFetch<T>(
   }
 
   const payload: unknown =
-    response.status === 204
-      ? null
-      : await response.json().catch(() => null)
+    response.status === 204 ? null : await response.json().catch(() => null)
 
   if (response.ok && (payload === null || payload === undefined)) {
     return undefined as T
   }
 
   if (!response.ok) {
-    throw new ApiError(
-      readErrorMessage(payload, "No pudimos completar la solicitud."),
-      response.status
+    const { message, code } = readError(
+      payload,
+      "No pudimos completar la solicitud."
     )
+    throw new ApiError(message, response.status, code)
   }
 
   if (
@@ -94,10 +113,11 @@ export async function apiFetch<T>(
     "success" in payload &&
     (payload as ErrorEnvelope).success === false
   ) {
-    throw new ApiError(
-      readErrorMessage(payload, "No pudimos completar la solicitud."),
-      response.status
+    const { message, code } = readError(
+      payload,
+      "No pudimos completar la solicitud."
     )
+    throw new ApiError(message, response.status, code)
   }
 
   throw new ApiError("Respuesta inesperada del servidor.", response.status)
