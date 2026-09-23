@@ -2,6 +2,18 @@
   "rewrites": [
     { "source": "/auth/:path*", "destination": "https://noa-api-wzmp.onrender.com/auth/:path*" },
     { "source": "/products/:path*", "destination": "https://noa-api-wzmp.onrender.com/products/:path*" },
+    { "source": "/order", "destination": "https://noa-api-wzmp.onrender.com/order" },
+    { "source": "/order/:path*", "destination": "https://noa-api-wzmp.onrender.com/order/:path*" },
+    { "source": "/orders", "destination": "https://noa-api-wzmp.onrender.com/orders" },
+    { "source": "/orders/:path*", "destination": "https://noa-api-wzmp.onrender.com/orders/:path*" },
+    { "source": "/clients", "destination": "https://noa-api-wzmp.onrender.com/clients" },
+    { "source": "/clients/:path*", "destination": "https://noa-api-wzmp.onrender.com/clients/:path*" },
+    { "source": "/inventory", "destination": "https://noa-api-wzmp.onrender.com/inventory" },
+    { "source": "/inventory/:path*", "destination": "https://noa-api-wzmp.onrender.com/inventory/:path*" },
+    { "source": "/deliveries", "destination": "https://noa-api-wzmp.onrender.com/deliveries" },
+    { "source": "/deliveries/:path*", "destination": "https://noa-api-wzmp.onrender.com/deliveries/:path*" },
+    { "source": "/reports", "destination": "https://noa-api-wzmp.onrender.com/reports" },
+    { "source": "/reports/:path*", "destination": "https://noa-api-wzmp.onrender.com/reports/:path*" },
     { "source": "/((?!assets/).*)", "destination": "/index.html" }
   ]
 }

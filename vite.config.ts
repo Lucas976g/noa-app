@@ -27,6 +27,30 @@ export default defineConfig(({ mode }) => {
           target: apiUrl,
           changeOrigin: true,
         },
+        "/order": {
+          target: apiUrl,
+          changeOrigin: true,
+        },
+        "/orders": {
+          target: apiUrl,
+          changeOrigin: true,
+        },
+        "/clients": {
+          target: apiUrl,
+          changeOrigin: true,
+        },
+        "/inventory": {
+          target: apiUrl,
+          changeOrigin: true,
+        },
+        "/deliveries": {
+          target: apiUrl,
+          changeOrigin: true,
+        },
+        "/reports": {
+          target: apiUrl,
+          changeOrigin: true,
+        },
       },
     },
   }

@@ -19,7 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { fetchOrders, updateOrder } from "@/orders/api"
+import { cancelOrder, fetchOrders, updateOrder } from "@/orders/api"
 import type { Order } from "@/orders/model"
 import { getOrderStatus, PAYMENT_METHODS } from "@/orders/model"
 import { ProcessOrderDialog } from "@/orders/ui/process-order-dialog"
@@ -67,11 +67,11 @@ export function AdminPedidosPage() {
     setSelectedOrder(null)
   }
 
-  const handleCancel = async (reason: string) => {
+  const handleCancel = async (reason: string, observations?: string) => {
     if (!selectedOrder) return
-    await updateOrder(selectedOrder.id, {
-      status: "cancelado",
-      cancelReason: reason,
+    await cancelOrder(selectedOrder.id, {
+      reason,
+      observations: observations ?? "",
     })
     setOrders((current) =>
       current.filter((order) => order.id !== selectedOrder.id)
@@ -190,7 +190,9 @@ export function AdminPedidosPage() {
           }}
           order={selectedOrder}
           onApprove={() => void handleApprove()}
-          onCancel={(reason) => void handleCancel(reason)}
+          onCancel={(reason, observations) =>
+            void handleCancel(reason, observations)
+          }
         />
       ) : null}
     </div>

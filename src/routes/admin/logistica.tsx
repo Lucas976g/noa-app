@@ -34,7 +34,7 @@ export function AdminLogisticaPage() {
   const [searchTerm, setSearchTerm] = useState("")
 
   useEffect(() => {
-    document.title = "Logística y Entregas · Distribuidora NOA"
+    document.title = "Monitoreo de los pedidos · Distribuidora NOA"
 
     let active = true
     void fetchOrders()
@@ -47,7 +47,7 @@ export function AdminLogisticaPage() {
         setError(
           loadError instanceof Error
             ? loadError.message
-            : "No pudimos cargar los pedidos de logística."
+            : "No pudimos cargar los pedidos de monitoreo."
         )
       })
       .finally(() => {
@@ -69,7 +69,7 @@ export function AdminLogisticaPage() {
   }
 
   const handleCancelDelivery = async (id: string) => {
-    await updateOrder(id, { status: "cancelado", cancelReason: "Cancelado desde logística" })
+    await updateOrder(id, { status: "cancelado", cancelReason: "Cancelado desde monitoreo" })
     setOrders((current) =>
       current.map((order) =>
         order.id === id ? { ...order, status: "cancelado" } : order
@@ -92,16 +92,13 @@ export function AdminLogisticaPage() {
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto p-6">
       <header className="flex flex-col gap-1">
-        <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-          Logística
-        </span>
-        <h1 className="font-heading text-[1.65rem] font-semibold tracking-tight">
-          Gestión de entregas
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Monitoreá el estado de los pedidos a lo largo del flujo logístico.
-        </p>
-      </header>
+      <h1 className="font-heading text-[1.65rem] font-semibold tracking-tight">
+        Monitoreo de Estados
+      </h1>
+      <p className="text-sm text-muted-foreground">
+        Seguimiento en tiempo real de los estados de los pedidos y control operativo.
+      </p>
+  </header>
 
       <div className="flex flex-col gap-4 rounded-lg border border-border bg-card p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
