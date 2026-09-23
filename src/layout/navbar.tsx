@@ -42,9 +42,10 @@ export function Navbar() {
   const [cartOpen, setCartOpen] = useState(false)
   const [logoutOpen, setLogoutOpen] = useState(false)
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     clearCart()
-    logout()
+    await logout()
+    setLogoutOpen(false)
     setMenuOpen(false)
     navigate("/login", { replace: true })
   }

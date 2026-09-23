@@ -1,3 +1,4 @@
+import { useState } from "react"
 import { IconLogout } from "@tabler/icons-react"
 
 import { Button } from "@/components/ui/button"
@@ -9,20 +10,42 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { Spinner } from "@/components/ui/spinner"
 
-type LogoutDialogProps = {
+export type LogoutDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onConfirm: () => void
+  onConfirm: () => Promise<void> | void
 }
 
+/**
+ * Confirmation dialog for logging out.
+ * Provides loading state and prevents closing while logout request is executing.
+ */
 export function LogoutDialog({
   open,
   onOpenChange,
   onConfirm,
 }: LogoutDialogProps) {
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const handleConfirm = async () => {
+    if (isSubmitting) return
+    setIsSubmitting(true)
+    try {
+      await onConfirm()
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (isSubmitting) return
+    onOpenChange(nextOpen)
+  }
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
           <div className="flex items-center gap-2">
@@ -42,13 +65,28 @@ export function LogoutDialog({
           <Button
             type="button"
             variant="ghost"
-            onClick={() => onOpenChange(false)}
+            disabled={isSubmitting}
+            onClick={() => handleOpenChange(false)}
           >
             Cancelar
           </Button>
-          <Button type="button" variant="destructive" onClick={onConfirm}>
-            <IconLogout data-icon="inline-start" />
-            Cerrar sesión
+          <Button
+            type="button"
+            variant="destructive"
+            disabled={isSubmitting}
+            onClick={() => void handleConfirm()}
+          >
+            {isSubmitting ? (
+              <>
+                <Spinner data-icon="inline-start" />
+                Cerrando sesión…
+              </>
+            ) : (
+              <>
+                <IconLogout data-icon="inline-start" />
+                Cerrar sesión
+              </>
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>

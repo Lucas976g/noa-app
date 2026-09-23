@@ -42,9 +42,10 @@ export function AdminSidebar() {
   const navigate = useNavigate()
   const [logoutOpen, setLogoutOpen] = useState(false)
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     clearCart()
-    logout()
+    await logout()
+    setLogoutOpen(false)
     navigate("/login", { replace: true })
   }
 
