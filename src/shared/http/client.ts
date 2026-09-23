@@ -27,7 +27,13 @@ type ErrorEnvelope = {
 }
 
 export function resolveApiUrl(path: string): string {
-  return path.startsWith("/") ? path : `/${path}`
+  if (path.startsWith("http")) return path
+  // En desarrollo, usamos rutas relativas para que el proxy de Vite gestione las cookies en localhost
+  if (import.meta.env.DEV) {
+    return path.startsWith("/") ? path : `/${path}`
+  }
+  const baseUrl = import.meta.env.VITE_API_URL ?? ""
+  return `${baseUrl}${path.startsWith("/") ? path : `/${path}`}`
 }
 
 function readError(
@@ -93,6 +99,10 @@ export async function apiFetch<T>(
       "No pudimos completar la solicitud."
     )
     throw new ApiError(message, response.status, code)
+  }
+
+  if (Array.isArray(payload)) {
+    return payload as T
   }
 
   if (

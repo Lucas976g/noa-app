@@ -88,10 +88,76 @@ export const ORDER_STATUSES: ReadonlyArray<OrderStatus> = [
   { id: "cancelado", label: "Cancelado", tone: "destructive" },
 ]
 
-export const getOrderStatus = (id: OrderStatusId): OrderStatus => {
-  const found = ORDER_STATUSES.find((s) => s.id === id)
+export const normalizeOrderStatus = (
+  raw: string | undefined | null
+): OrderStatusId => {
+  if (!raw) return "en-analisis"
+  const s = raw.toLowerCase().trim()
+  if (
+    s.includes("cancel") ||
+    s.includes("rechaz") ||
+    s.includes("anul")
+  ) {
+    return "cancelado"
+  }
+  if (
+    s === "entregado" ||
+    s === "completado" ||
+    s === "recibido" ||
+    s === "finalizado" ||
+    s.includes("entreg") ||
+    s.includes("complet")
+  ) {
+    return "entregado"
+  }
+  if (
+    s === "proceso" ||
+    s === "en-proceso" ||
+    s === "en_proceso" ||
+    s === "en proceso" ||
+    s.includes("proces")
+  ) {
+    return "en-proceso"
+  }
+  if (
+    s === "analisis" ||
+    s === "en-analisis" ||
+    s === "en_analisis" ||
+    s === "en analisis" ||
+    s.includes("analis") ||
+    s.includes("pendient")
+  ) {
+    return "en-analisis"
+  }
+  return "en-analisis"
+}
+
+export const normalizePaymentMethod = (
+  raw: string | undefined | null
+): PaymentMethod => {
+  if (!raw) return "contado"
+  const s = raw.toLowerCase().trim()
+  if (
+    s.includes("cuenta") ||
+    s.includes("corriente") ||
+    s === "cc" ||
+    s === "cta-cte" ||
+    s === "cta_cte"
+  ) {
+    return "cuenta-corriente"
+  }
+  return "contado"
+}
+
+export const getOrderStatus = (id: string): OrderStatus => {
+  const normalizedId = normalizeOrderStatus(id)
+  const found = ORDER_STATUSES.find((s) => s.id === normalizedId)
   if (!found) {
-    throw new Error(`Unknown order status: ${id}`)
+    return {
+      id: "en-proceso",
+      label: id || "En proceso",
+      tone: "default",
+    }
   }
   return found
 }

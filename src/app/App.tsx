@@ -10,6 +10,7 @@ import { AdminClientesPage } from "@/routes/admin/clientes"
 import { AdminDashboardPage } from "@/routes/admin/index"
 import { AdminInventarioPage } from "@/routes/admin/inventario"
 import { AdminLogisticaPage } from "@/routes/admin/logistica"
+import { AdminMonitoreoPage } from "@/routes/admin/monitoreo"
 import { AdminPedidosPage } from "@/routes/admin/pedidos"
 import { AdminReportesPage } from "@/routes/admin/reportes"
 import { CatalogPage } from "@/routes/catalog"
@@ -64,6 +65,7 @@ export function App() {
         <Route path="inventario" element={<AdminInventarioPage />} />
         <Route path="clientes" element={<AdminClientesPage />} />
         <Route path="logistica" element={<AdminLogisticaPage />} />
+        <Route path="monitoreo" element={<AdminMonitoreoPage />} />
         <Route path="reportes" element={<AdminReportesPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

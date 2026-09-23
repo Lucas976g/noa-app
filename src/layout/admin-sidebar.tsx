@@ -8,6 +8,7 @@ import {
   IconReceipt,
   IconTruckDelivery,
   IconUsers,
+  IconEye,
   type Icon,
 } from "@tabler/icons-react"
 
@@ -30,6 +31,7 @@ const NAV_ITEMS: ReadonlyArray<NavItem> = [
   { to: "/admin/inventario", label: "Inventario", icon: IconBox },
   { to: "/admin/clientes", label: "Clientes", icon: IconUsers },
   { to: "/admin/logistica", label: "Logística", icon: IconTruckDelivery },
+  { to: "/admin/monitoreo", label: "Monitoreo", icon: IconEye },
   { to: "/admin/reportes", label: "Reportes", icon: IconChartBar },
 ]
 
