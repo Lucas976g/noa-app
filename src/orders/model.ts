@@ -8,6 +8,10 @@ export type OrderStatusId =
 
 export type PaymentMethod = "cuenta-corriente" | "contado"
 
+// Forma de cobro al entregar un pedido de contado. La cuenta corriente no
+// elige método: el backend imputa el total automáticamente.
+export type ContadoCollectionMethod = "efectivo" | "transferencia"
+
 export type Order = {
   id: string
   createdAt: string
@@ -18,22 +22,49 @@ export type Order = {
   subtotal: number
   paymentMethod: PaymentMethod
   status: OrderStatusId
-  cancelReason?: string
+  observations?: string
   deliveryAddress?: string
+  deliveredAt?: string
+  deliveryObservations?: string
+  canceledAt?: string
+  cancelReason?: string
+  cancelObservations?: string
 }
 
 export type CreateOrderInput = {
-  userId: string
-  userName: string
   items: CartItem[]
-  subtotal: number
   paymentMethod: PaymentMethod
-  deliveryAddress?: string
+  observations?: string
 }
 
-export type UpdateOrderInput = Partial<
-  Pick<Order, "status" | "cancelReason">
->
+export type UpdateOrderInput =
+  | { status: "en-proceso" }
+  | { status: "cancelado"; reason?: string; observations?: string }
+  | {
+      status: "entregado"
+      // Requerido en pedidos de contado; se omite en cuenta corriente.
+      paymentMethod?: ContadoCollectionMethod
+      observations?: string
+    }
+
+// Resultado de POST /orders/validate: prevalida disponibilidad de productos
+// y, en cuenta corriente, si el saldo alcanza, sin persistir nada.
+export type OrderValidation =
+  | {
+      valid: true
+      totalAmount: number
+      paymentMethod: PaymentMethod
+      availableBalance?: number
+      remainingBalance?: number
+    }
+  | {
+      valid: false
+      reason: string
+      message: string
+      totalAmount: number
+      paymentMethod: PaymentMethod
+      availableBalance?: number
+    }
 
 // Order status config
 export type BadgeVariant =

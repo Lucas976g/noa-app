@@ -7,17 +7,21 @@ import type { Account } from "@/clients/model"
 
 type AccountCardProps = {
   account: Account
+  className?: string
 }
 
-export function AccountCard({ account }: AccountCardProps) {
+export function AccountCard({ account, className }: AccountCardProps) {
   const hasDebt = account.currentDebt > 0
-  const usedPercentage = Math.min(
-    100,
-    Math.max(0, (account.currentDebt / account.creditLimit) * 100)
-  )
+  const usedPercentage =
+    account.creditLimit > 0
+      ? Math.min(
+          100,
+          Math.max(0, (account.currentDebt / account.creditLimit) * 100)
+        )
+      : 0
 
   return (
-    <Card>
+    <Card className={className}>
       <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
         <div className="flex items-center gap-2 text-muted-foreground">
           <IconWallet className="size-4" aria-hidden />
