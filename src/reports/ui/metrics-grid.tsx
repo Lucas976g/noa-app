@@ -67,9 +67,7 @@ function MetricCard({ icon, label, value, detail }: MetricCardProps) {
         <span className="truncate text-lg font-semibold tabular-nums">
           {value}
         </span>
-        <span className="truncate text-xs text-muted-foreground">
-          {detail}
-        </span>
+        <span className="truncate text-xs text-muted-foreground">{detail}</span>
       </div>
     </div>
   )

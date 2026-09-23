@@ -38,7 +38,9 @@ export function AdminMonitoreoPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState<OrderStatusId | "all">("all")
-  const [paymentFilter, setPaymentFilter] = useState<PaymentMethod | "all">("all")
+  const [paymentFilter, setPaymentFilter] = useState<PaymentMethod | "all">(
+    "all"
+  )
   const [searchTerm, setSearchTerm] = useState("")
 
   useEffect(() => {
@@ -74,19 +76,33 @@ export function AdminMonitoreoPage() {
   const countEntregados = orders.filter((o) => o.status === "entregado").length
   const countCancelados = orders.filter((o) => o.status === "cancelado").length
 
-  const countCC = orders.filter((o) => o.paymentMethod === "cuenta-corriente").length
-  const countContado = orders.filter((o) => o.paymentMethod === "contado").length
+  const countCC = orders.filter(
+    (o) => o.paymentMethod === "cuenta-corriente"
+  ).length
+  const countContado = orders.filter(
+    (o) => o.paymentMethod === "contado"
+  ).length
 
-  const maxStatusCount = Math.max(countAnalisis, countProceso, countEntregados, countCancelados, 1)
+  const maxStatusCount = Math.max(
+    countAnalisis,
+    countProceso,
+    countEntregados,
+    countCancelados,
+    1
+  )
 
   // Filtrado de pedidos para la tabla de seguimiento
   const filteredOrders = orders.filter((order) => {
-    const matchesStatus = statusFilter === "all" || order.status === statusFilter
-    const matchesPayment = paymentFilter === "all" || order.paymentMethod === paymentFilter
+    const matchesStatus =
+      statusFilter === "all" || order.status === statusFilter
+    const matchesPayment =
+      paymentFilter === "all" || order.paymentMethod === paymentFilter
     const matchesSearch =
       order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
       order.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (order.deliveryAddress ?? "").toLowerCase().includes(searchTerm.toLowerCase())
+      (order.deliveryAddress ?? "")
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase())
 
     return matchesStatus && matchesPayment && matchesSearch
   })
@@ -104,92 +120,124 @@ export function AdminMonitoreoPage() {
 
       {/* SECCIÓN DE GRÁFICOS Y MÉTRICAS */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        
         {/* Gráfico de Estados */}
-        <div className="rounded-xl border border-border bg-card p-4 lg:col-span-2 flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-3">
+        <div className="flex flex-col justify-between rounded-xl border border-border bg-card p-4 lg:col-span-2">
+          <div className="mb-3 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <IconChartBar className="size-4 text-primary" />
-              <h2 className="text-xs font-semibold tracking-wider uppercase text-muted-foreground">Estados de los Pedidos</h2>
+              <h2 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+                Estados de los Pedidos
+              </h2>
             </div>
-            <span className="text-[11px] text-muted-foreground italic">Haz clic en una barra para filtrar</span>
+            <span className="text-[11px] text-muted-foreground italic">
+              Haz clic en una barra para filtrar
+            </span>
           </div>
 
           <div className="flex flex-col gap-3 py-2">
             {/* Barra En Análisis */}
-            <button 
-              type="button" 
+            <button
+              type="button"
               onClick={() => setStatusFilter("en-analisis")}
-              className={`flex items-center gap-3 w-full p-2 rounded-lg transition-all text-left group cursor-pointer hover:bg-muted/50 ${statusFilter === "en-analisis" ? "bg-amber-500/10 ring-1 ring-amber-500" : ""}`}
+              className={`group flex w-full cursor-pointer items-center gap-3 rounded-lg p-2 text-left transition-all hover:bg-muted/50 ${statusFilter === "en-analisis" ? "bg-amber-500/10 ring-1 ring-amber-500" : ""}`}
             >
-              <span className="text-xs font-medium w-24 text-muted-foreground group-hover:text-foreground">En Análisis</span>
-              <div className="flex-1 bg-muted/60 h-4 rounded-full overflow-hidden relative">
-                <div 
-                  className="bg-amber-500 h-full rounded-full transition-all"
-                  style={{ width: `${Math.max((countAnalisis / maxStatusCount) * 100, countAnalisis > 0 ? 8 : 2)}%` }}
+              <span className="w-24 text-xs font-medium text-muted-foreground group-hover:text-foreground">
+                En Análisis
+              </span>
+              <div className="relative h-4 flex-1 overflow-hidden rounded-full bg-muted/60">
+                <div
+                  className="h-full rounded-full bg-amber-500 transition-all"
+                  style={{
+                    width: `${Math.max((countAnalisis / maxStatusCount) * 100, countAnalisis > 0 ? 8 : 2)}%`,
+                  }}
                 />
               </div>
-              <span className="text-base font-bold w-12 text-right text-amber-500">{countAnalisis}</span>
+              <span className="w-12 text-right text-base font-bold text-amber-500">
+                {countAnalisis}
+              </span>
             </button>
 
             {/* Barra En Proceso */}
-            <button 
-              type="button" 
+            <button
+              type="button"
               onClick={() => setStatusFilter("en-proceso")}
-              className={`flex items-center gap-3 w-full p-2 rounded-lg transition-all text-left group cursor-pointer hover:bg-muted/50 ${statusFilter === "en-proceso" ? "bg-blue-500/10 ring-1 ring-blue-500" : ""}`}
+              className={`group flex w-full cursor-pointer items-center gap-3 rounded-lg p-2 text-left transition-all hover:bg-muted/50 ${statusFilter === "en-proceso" ? "bg-blue-500/10 ring-1 ring-blue-500" : ""}`}
             >
-              <span className="text-xs font-medium w-24 text-muted-foreground group-hover:text-foreground">En Proceso</span>
-              <div className="flex-1 bg-muted/60 h-4 rounded-full overflow-hidden relative">
-                <div 
-                  className="bg-blue-500 h-full rounded-full transition-all"
-                  style={{ width: `${Math.max((countProceso / maxStatusCount) * 100, countProceso > 0 ? 8 : 2)}%` }}
+              <span className="w-24 text-xs font-medium text-muted-foreground group-hover:text-foreground">
+                En Proceso
+              </span>
+              <div className="relative h-4 flex-1 overflow-hidden rounded-full bg-muted/60">
+                <div
+                  className="h-full rounded-full bg-blue-500 transition-all"
+                  style={{
+                    width: `${Math.max((countProceso / maxStatusCount) * 100, countProceso > 0 ? 8 : 2)}%`,
+                  }}
                 />
               </div>
-              <span className="text-base font-bold w-12 text-right text-blue-500">{countProceso}</span>
+              <span className="w-12 text-right text-base font-bold text-blue-500">
+                {countProceso}
+              </span>
             </button>
 
             {/* Barra Entregados */}
-            <button 
-              type="button" 
+            <button
+              type="button"
               onClick={() => setStatusFilter("entregado")}
-              className={`flex items-center gap-3 w-full p-2 rounded-lg transition-all text-left group cursor-pointer hover:bg-muted/50 ${statusFilter === "entregado" ? "bg-emerald-500/10 ring-1 ring-emerald-500" : ""}`}
+              className={`group flex w-full cursor-pointer items-center gap-3 rounded-lg p-2 text-left transition-all hover:bg-muted/50 ${statusFilter === "entregado" ? "bg-emerald-500/10 ring-1 ring-emerald-500" : ""}`}
             >
-              <span className="text-xs font-medium w-24 text-muted-foreground group-hover:text-foreground">Entregados</span>
-              <div className="flex-1 bg-muted/60 h-4 rounded-full overflow-hidden relative">
-                <div 
-                  className="bg-emerald-500 h-full rounded-full transition-all"
-                  style={{ width: `${Math.max((countEntregados / maxStatusCount) * 100, countEntregados > 0 ? 8 : 2)}%` }}
+              <span className="w-24 text-xs font-medium text-muted-foreground group-hover:text-foreground">
+                Entregados
+              </span>
+              <div className="relative h-4 flex-1 overflow-hidden rounded-full bg-muted/60">
+                <div
+                  className="h-full rounded-full bg-emerald-500 transition-all"
+                  style={{
+                    width: `${Math.max((countEntregados / maxStatusCount) * 100, countEntregados > 0 ? 8 : 2)}%`,
+                  }}
                 />
               </div>
-              <span className="text-base font-bold w-12 text-right text-emerald-500">{countEntregados}</span>
+              <span className="w-12 text-right text-base font-bold text-emerald-500">
+                {countEntregados}
+              </span>
             </button>
 
             {/* Barra Cancelados */}
-            <button 
-              type="button" 
+            <button
+              type="button"
               onClick={() => setStatusFilter("cancelado")}
-              className={`flex items-center gap-3 w-full p-2 rounded-lg transition-all text-left group cursor-pointer hover:bg-muted/50 ${statusFilter === "cancelado" ? "bg-destructive/10 ring-1 ring-destructive" : ""}`}
+              className={`group flex w-full cursor-pointer items-center gap-3 rounded-lg p-2 text-left transition-all hover:bg-muted/50 ${statusFilter === "cancelado" ? "bg-destructive/10 ring-1 ring-destructive" : ""}`}
             >
-              <span className="text-xs font-medium w-24 text-muted-foreground group-hover:text-foreground">Cancelados</span>
-              <div className="flex-1 bg-muted/60 h-4 rounded-full overflow-hidden relative">
-                <div 
-                  className="bg-destructive h-full rounded-full transition-all"
-                  style={{ width: `${Math.max((countCancelados / maxStatusCount) * 100, countCancelados > 0 ? 8 : 2)}%` }}
+              <span className="w-24 text-xs font-medium text-muted-foreground group-hover:text-foreground">
+                Cancelados
+              </span>
+              <div className="relative h-4 flex-1 overflow-hidden rounded-full bg-muted/60">
+                <div
+                  className="h-full rounded-full bg-destructive transition-all"
+                  style={{
+                    width: `${Math.max((countCancelados / maxStatusCount) * 100, countCancelados > 0 ? 8 : 2)}%`,
+                  }}
                 />
               </div>
-              <span className="text-base font-bold w-12 text-right text-destructive">{countCancelados}</span>
+              <span className="w-12 text-right text-base font-bold text-destructive">
+                {countCancelados}
+              </span>
             </button>
           </div>
 
-          <div className="flex items-center justify-between pt-2 text-xs text-muted-foreground border-t border-border/60">
-            <span>Filtro actual: <strong className="text-foreground uppercase">{STATUS_FILTER_LABELS[statusFilter]}</strong></span>
+          <div className="flex items-center justify-between border-t border-border/60 pt-2 text-xs text-muted-foreground">
+            <span>
+              Filtro actual:{" "}
+              <strong className="text-foreground uppercase">
+                {STATUS_FILTER_LABELS[statusFilter]}
+              </strong>
+            </span>
             {statusFilter !== "all" && (
-              <Button 
-                type="button" 
+              <Button
+                type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => setStatusFilter("all")} 
-                className="h-6 px-2 text-xs font-medium gap-1 hover:bg-muted"
+                onClick={() => setStatusFilter("all")}
+                className="h-6 gap-1 px-2 text-xs font-medium hover:bg-muted"
               >
                 <IconX className="size-3" />
                 Limpiar filtro de estado
@@ -199,40 +247,57 @@ export function AdminMonitoreoPage() {
         </div>
 
         {/* Métodos de Pago y Filtro Rápido */}
-        <div className="rounded-xl border border-border bg-card p-4 flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="text-xs font-semibold tracking-wider uppercase text-muted-foreground">Métodos de Pago</h2>
+        <div className="flex flex-col justify-between rounded-xl border border-border bg-card p-4">
+          <div className="mb-2 flex items-center justify-between">
+            <h2 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+              Métodos de Pago
+            </h2>
             <span className="text-sm font-semibold text-muted-foreground">
-              Pedidos totales: <span className="text-foreground text-base font-bold">{totalOrders}</span>
+              Pedidos totales:{" "}
+              <span className="text-base font-bold text-foreground">
+                {totalOrders}
+              </span>
             </span>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 my-2">
-            <div className="rounded-lg bg-muted/40 p-3 flex flex-col justify-between border border-border/50">
-              <span className="text-[11px] text-muted-foreground font-medium">Cuenta Corriente</span>
-              <span className="text-xl font-bold mt-1 text-foreground">{countCC}</span>
+          <div className="my-2 grid grid-cols-2 gap-3">
+            <div className="flex flex-col justify-between rounded-lg border border-border/50 bg-muted/40 p-3">
+              <span className="text-[11px] font-medium text-muted-foreground">
+                Cuenta Corriente
+              </span>
+              <span className="mt-1 text-xl font-bold text-foreground">
+                {countCC}
+              </span>
             </div>
-            <div className="rounded-lg bg-muted/40 p-3 flex flex-col justify-between border border-border/50">
-              <span className="text-[11px] text-muted-foreground font-medium">Contado</span>
-              <span className="text-xl font-bold mt-1 text-foreground">{countContado}</span>
+            <div className="flex flex-col justify-between rounded-lg border border-border/50 bg-muted/40 p-3">
+              <span className="text-[11px] font-medium text-muted-foreground">
+                Contado
+              </span>
+              <span className="mt-1 text-xl font-bold text-foreground">
+                {countContado}
+              </span>
             </div>
           </div>
 
-          <div className="border-t border-border pt-3 flex flex-col gap-1.5">
-            <span className="text-[11px] text-muted-foreground">Filtro rápido de pago:</span>
+          <div className="flex flex-col gap-1.5 border-t border-border pt-3">
+            <span className="text-[11px] text-muted-foreground">
+              Filtro rápido de pago:
+            </span>
             <div className="grid grid-cols-3 gap-1.5">
               <Button
                 variant={paymentFilter === "all" ? "default" : "outline"}
                 size="sm"
-                className={`text-xs h-7 ${paymentFilter === "all" ? "font-semibold shadow-sm" : "text-muted-foreground"}`}
+                className={`h-7 text-xs ${paymentFilter === "all" ? "font-semibold shadow-sm" : "text-muted-foreground"}`}
                 onClick={() => setPaymentFilter("all")}
               >
                 Todos
               </Button>
               <Button
-                variant={paymentFilter === "cuenta-corriente" ? "default" : "outline"}
+                variant={
+                  paymentFilter === "cuenta-corriente" ? "default" : "outline"
+                }
                 size="sm"
-                className={`text-xs h-7 ${paymentFilter === "cuenta-corriente" ? "font-semibold shadow-sm" : "text-muted-foreground"}`}
+                className={`h-7 text-xs ${paymentFilter === "cuenta-corriente" ? "font-semibold shadow-sm" : "text-muted-foreground"}`}
                 onClick={() => setPaymentFilter("cuenta-corriente")}
               >
                 Cta. Cte.
@@ -240,7 +305,7 @@ export function AdminMonitoreoPage() {
               <Button
                 variant={paymentFilter === "contado" ? "default" : "outline"}
                 size="sm"
-                className={`text-xs h-7 ${paymentFilter === "contado" ? "font-semibold shadow-sm" : "text-muted-foreground"}`}
+                className={`h-7 text-xs ${paymentFilter === "contado" ? "font-semibold shadow-sm" : "text-muted-foreground"}`}
                 onClick={() => setPaymentFilter("contado")}
               >
                 Contado
@@ -248,7 +313,6 @@ export function AdminMonitoreoPage() {
             </div>
           </div>
         </div>
-
       </div>
 
       {/* TABLA DE SEGUIMIENTO */}
@@ -258,10 +322,12 @@ export function AdminMonitoreoPage() {
             placeholder="Buscar por ID, cliente o dirección..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="max-w-md h-9 text-xs"
+            className="h-9 max-w-md text-xs"
           />
           <span className="text-xs text-muted-foreground">
-            Mostrando <strong className="text-foreground">{filteredOrders.length}</strong> pedidos en seguimiento
+            Mostrando{" "}
+            <strong className="text-foreground">{filteredOrders.length}</strong>{" "}
+            pedidos en seguimiento
           </span>
         </div>
 
@@ -292,7 +358,7 @@ export function AdminMonitoreoPage() {
             </EmptyHeader>
           </Empty>
         ) : (
-          <div className="rounded-xl border border-border overflow-hidden shadow-xs">
+          <div className="overflow-hidden rounded-xl border border-border shadow-xs">
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/30">
@@ -312,17 +378,20 @@ export function AdminMonitoreoPage() {
                   )
 
                   return (
-                    <TableRow key={order.id} className="hover:bg-muted/40 transition-colors">
+                    <TableRow
+                      key={order.id}
+                      className="transition-colors hover:bg-muted/40"
+                    >
                       <TableCell className="font-mono text-xs font-semibold text-muted-foreground">
                         #{order.id.slice(0, 8).toUpperCase()}
                       </TableCell>
                       <TableCell className="font-medium text-foreground">
                         {order.userName}
                       </TableCell>
-                      <TableCell className="text-muted-foreground text-xs">
+                      <TableCell className="text-xs text-muted-foreground">
                         {order.deliveryAddress ?? "Sin dirección especificada"}
                       </TableCell>
-                      <TableCell className="text-right font-bold tabular-nums text-foreground">
+                      <TableCell className="text-right font-bold text-foreground tabular-nums">
                         {formatCurrency(order.subtotal)}
                       </TableCell>
                       <TableCell>

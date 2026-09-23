@@ -6,6 +6,7 @@ import type {
   OrderStatusId,
   OrderValidation,
   PaymentMethod,
+  UpdateOrderInput,
 } from "./model"
 
 type ApiOrderStatus = "analisis" | "proceso" | "entregado" | "cancelado"
@@ -140,6 +141,8 @@ export const fetchOrder = async (id: string): Promise<Order> => {
   return mapOrderOrThrow(await apiFetch<ApiOrder>(`/orders/${id}`))
 }
 
+export const fetchOrderById = fetchOrder
+
 // POST /orders/validate — prevalida productos y saldo sin persistir nada
 // (rol: cliente).
 export const validateOrder = async (input: {
@@ -240,70 +243,25 @@ export const deliverOrder = async (
   return mapOrderOrThrow(order)
 }
 
-// PUT /orders/:id/cancel – cancelar orden con motivo y observaciones
-export const cancelOrder = async (
-  id: string,
-  input: CancelOrderInput
-): Promise<Order> => {
-  const payload = {
-    reason: input.reason,
-    observations: input.observations ?? "",
-  }
-
-  try {
-    const data = await apiFetch<unknown>(`/orders/${id}/cancel`, {
-      method: "PUT",
-      body: JSON.stringify(payload),
-    })
-    return mapApiOrder(data)
-  } catch {
-    const data = await apiFetch<unknown>(`/order/${id}/cancel`, {
-      method: "PUT",
-      body: JSON.stringify(payload),
-    })
-    return mapApiOrder(data)
-  }
-}
-
-// PUT /orders/:id/process – procesar o actualizar estado de una orden
+// PUT /orders/:id/process, /orders/:id/cancel o /orders/:id/deliver según estado
 export const updateOrder = async (
   id: string,
   input: UpdateOrderInput
 ): Promise<Order> => {
+  if (input.status === "en-proceso") {
+    return processOrder(id)
+  }
   if (input.status === "cancelado") {
     return cancelOrder(id, {
-      reason: input.cancelReason || "Cancelado por el director",
-      observations: "",
+      reason: input.reason,
+      observations: input.observations,
     })
   }
-
-  const backendStatus =
-    input.status === "en-proceso" ? "proceso" : input.status
-  const payload = {
-    ...input,
-    status: backendStatus,
-    estado: backendStatus,
-  }
-
-  try {
-    const data = await apiFetch<unknown>(`/orders/${id}/process`, {
-      method: "PUT",
-      body: JSON.stringify(payload),
+  if (input.status === "entregado") {
+    return deliverOrder(id, {
+      paymentMethod: input.paymentMethod,
+      observations: input.observations,
     })
-    return mapApiOrder(data)
-  } catch {
-    try {
-      const data = await apiFetch<unknown>(`/orders/${id}`, {
-        method: "PUT",
-        body: JSON.stringify(payload),
-      })
-      return mapApiOrder(data)
-    } catch {
-      const data = await apiFetch<unknown>(`/orders/${id}`, {
-        method: "PATCH",
-        body: JSON.stringify(payload),
-      })
-      return mapApiOrder(data)
-    }
   }
+  throw new Error("Estado no compatible.")
 }

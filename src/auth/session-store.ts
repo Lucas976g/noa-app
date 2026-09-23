@@ -74,7 +74,10 @@ export const useAuthStore = create<AuthState>()(
             typeof raw.email === "string" &&
             isRole(raw.role)
           ) {
-            return { ...legacy, user: { id: raw.id, email: raw.email, role: raw.role } } as AuthState
+            return {
+              ...legacy,
+              user: { id: raw.id, email: raw.email, role: raw.role },
+            } as AuthState
           }
           return { user: null } as AuthState
         }

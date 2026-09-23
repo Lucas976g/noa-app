@@ -40,7 +40,9 @@ export function AdminPedidosPage() {
       .then((loadedOrders) => {
         if (!active) return
         // Filtramos solo los pedidos que están pendientes de análisis
-        setOrders(loadedOrders.filter((order) => order.status === "en-analisis"))
+        setOrders(
+          loadedOrders.filter((order) => order.status === "en-analisis")
+        )
       })
       .catch((loadError: unknown) => {
         if (!active) return
@@ -113,8 +115,9 @@ export function AdminPedidosPage() {
               Pedidos
             </h1>
             {!loading && orders.length > 0 && (
-              <Badge variant="secondary" className="font-medium text-xs">
-                {orders.length} {orders.length === 1 ? "pendiente" : "pendientes"}
+              <Badge variant="secondary" className="text-xs font-medium">
+                {orders.length}{" "}
+                {orders.length === 1 ? "pendiente" : "pendientes"}
               </Badge>
             )}
           </div>
@@ -151,18 +154,18 @@ export function AdminPedidosPage() {
           </EmptyHeader>
         </Empty>
       ) : (
-        <div className="rounded-xl border border-border bg-card shadow-xs overflow-hidden">
+        <div className="overflow-hidden rounded-xl border border-border bg-card shadow-xs">
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/30">
-                <TableHead className="text-center w-28">ID</TableHead>
+                <TableHead className="w-28 text-center">ID</TableHead>
                 <TableHead className="text-left">Cliente</TableHead>
                 <TableHead className="text-center">Fecha</TableHead>
                 <TableHead className="text-center">Cantidad</TableHead>
                 <TableHead className="text-right">Subtotal</TableHead>
                 <TableHead className="text-center">Estado</TableHead>
                 <TableHead className="text-center">Pago</TableHead>
-                <TableHead className="text-center w-28">Acción</TableHead>
+                <TableHead className="w-28 text-center">Acción</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -177,31 +180,39 @@ export function AdminPedidosPage() {
                 )
 
                 return (
-                  <TableRow key={order.id} className="hover:bg-muted/40 transition-colors">
+                  <TableRow
+                    key={order.id}
+                    className="transition-colors hover:bg-muted/40"
+                  >
                     <TableCell className="text-center font-mono text-xs font-semibold text-muted-foreground">
                       #{order.id.slice(0, 8).toUpperCase()}
                     </TableCell>
                     <TableCell className="text-left">
                       <div className="flex flex-col">
-                        <span className="font-medium text-foreground">{order.userName}</span>
+                        <span className="font-medium text-foreground">
+                          {order.userName}
+                        </span>
                         {order.deliveryAddress && (
-                          <span className="text-xs text-muted-foreground line-clamp-1 max-w-[260px]" title={order.deliveryAddress}>
+                          <span
+                            className="line-clamp-1 max-w-[260px] text-xs text-muted-foreground"
+                            title={order.deliveryAddress}
+                          >
                             {order.deliveryAddress}
                           </span>
                         )}
                       </div>
                     </TableCell>
-                    <TableCell className="text-center text-muted-foreground text-xs whitespace-nowrap">
+                    <TableCell className="text-center text-xs whitespace-nowrap text-muted-foreground">
                       {formatDate(order.createdAt)}
                     </TableCell>
                     <TableCell className="text-center tabular-nums">
                       {order.items && order.items.length > 0 ? (
                         <span className="font-medium">{quantity}</span>
                       ) : (
-                        <span className="text-muted-foreground text-xs">—</span>
+                        <span className="text-xs text-muted-foreground">—</span>
                       )}
                     </TableCell>
-                    <TableCell className="text-right font-bold tabular-nums text-foreground">
+                    <TableCell className="text-right font-bold text-foreground tabular-nums">
                       {formatCurrency(order.subtotal)}
                     </TableCell>
                     <TableCell className="text-center">
@@ -232,6 +243,7 @@ export function AdminPedidosPage() {
 
       {selectedOrder ? (
         <ProcessOrderDialog
+          key={selectedOrder.id}
           open
           onOpenChange={(open) => {
             if (!open) setSelectedOrder(null)

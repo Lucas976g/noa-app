@@ -15,11 +15,9 @@ import { Field, FieldDescription, FieldLabel } from "@/components/ui/field"
 import { Separator } from "@/components/ui/separator"
 import { Spinner } from "@/components/ui/spinner"
 import { Textarea } from "@/components/ui/textarea"
-import { fetchOrderById } from "@/orders/api"
-import type { Order } from "@/orders/model"
+import { fetchOrder } from "@/orders/api"
+import { getOrderStatus, PAYMENT_METHODS, type Order } from "@/orders/model"
 import { formatCurrency, formatDateTime } from "@/shared/lib/format"
-import { getOrderStatus } from "@/orders/model"
-import { PAYMENT_METHODS } from "@/orders/model"
 
 type ProcessOrderDialogProps = {
   open: boolean
@@ -41,34 +39,44 @@ export function ProcessOrderDialog({
   const [mode, setMode] = useState<Mode>("default")
   const [reason, setReason] = useState("")
   const [observations, setObservations] = useState("")
-  const [details, setDetails] = useState<Order>(order)
-  const [loadingDetails, setLoadingDetails] = useState(false)
+  const [fetchedOrder, setFetchedOrder] = useState<Order | null>(null)
+  const [loadFailed, setLoadFailed] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+
+  const details = fetchedOrder?.id === order.id ? fetchedOrder : order
+  const loadingDetails =
+    open && Boolean(order?.id) && fetchedOrder?.id !== order.id && !loadFailed
 
   useEffect(() => {
     if (!open || !order?.id) return
-    setDetails(order)
-    setMode("default")
-    setReason("")
-    setObservations("")
-    setSubmitting(false)
     let active = true
-    setLoadingDetails(true)
-    void fetchOrderById(order.id)
+    void fetchOrder(order.id)
       .then((fullOrder) => {
-        if (active) setDetails(fullOrder)
+        if (active) {
+          setFetchedOrder(fullOrder)
+          setLoadFailed(false)
+        }
       })
-      .catch((err) => {
+      .catch((err: unknown) => {
+        if (active) setLoadFailed(true)
         console.warn("Error al cargar detalles del pedido:", err)
-      })
-      .finally(() => {
-        if (active) setLoadingDetails(false)
       })
 
     return () => {
       active = false
     }
-  }, [open, order])
+  }, [open, order.id])
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen) {
+      setMode("default")
+      setReason("")
+      setObservations("")
+      setFetchedOrder(null)
+      setLoadFailed(false)
+    }
+    onOpenChange(nextOpen)
+  }
 
   const status = getOrderStatus(details.status)
   const paymentLabel =
@@ -100,7 +108,10 @@ export function ProcessOrderDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={submitting ? undefined : onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={submitting ? undefined : handleOpenChange}
+    >
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <div className="flex flex-col gap-1.5">
@@ -181,7 +192,8 @@ export function ProcessOrderDialog({
             <div className="flex flex-col gap-4">
               <Field>
                 <FieldLabel htmlFor="cancel-reason">
-                  Motivo de cancelación <span className="text-destructive">*</span>
+                  Motivo de cancelación{" "}
+                  <span className="text-destructive">*</span>
                 </FieldLabel>
                 <Textarea
                   id="cancel-reason"

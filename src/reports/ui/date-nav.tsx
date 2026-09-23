@@ -40,10 +40,7 @@ export function DateNav({
           "flex items-center gap-2 px-2 text-sm font-medium tabular-nums"
         )}
       >
-        <IconCalendar
-          className="size-3.5 text-muted-foreground"
-          aria-hidden
-        />
+        <IconCalendar className="size-3.5 text-muted-foreground" aria-hidden />
         <span>{formatDate(date.toISOString())}</span>
       </div>
       <Button

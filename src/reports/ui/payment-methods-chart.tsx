@@ -8,10 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import {
-  type CashClosing,
-  type CashClosingMethod,
-} from "@/reports/model"
+import { type CashClosing, type CashClosingMethod } from "@/reports/model"
 import { CASH_CLOSING_METHODS } from "@/reports/lib"
 import { formatCurrency } from "@/shared/lib/format"
 import { cn } from "@/shared/lib/utils"
@@ -68,9 +65,8 @@ export function PaymentMethodsChart({ closing }: PaymentMethodsChartProps) {
                     {summary.count === 1 ? "entrega" : "entregas"}
                   </Badge>
                 </div>
-                <span className="tabular-nums text-muted-foreground">
-                  {formatCurrency(summary.amount)} ·{" "}
-                  {percentage.toFixed(1)}%
+                <span className="text-muted-foreground tabular-nums">
+                  {formatCurrency(summary.amount)} · {percentage.toFixed(1)}%
                 </span>
               </div>
               <div
@@ -143,10 +139,7 @@ function DonutChart({ methods, total }: DonutChartProps) {
     }>
   >((acc, m, index) => {
     const length = (m.summary.amount / total) * circumference
-    const offset =
-      index === 0
-        ? 0
-        : acc.reduce((sum, s) => sum + s.length, 0)
+    const offset = index === 0 ? 0 : acc.reduce((sum, s) => sum + s.length, 0)
     acc.push({ method: m, length, offset })
     return acc
   }, [])

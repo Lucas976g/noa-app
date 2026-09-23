@@ -1,9 +1,4 @@
-import {
-  IconBottle,
-  IconBox,
-  IconMeat,
-  IconMilk,
-} from "@tabler/icons-react"
+import { IconBottle, IconBox, IconMeat, IconMilk } from "@tabler/icons-react"
 
 import type { CategoryId, Category } from "./model"
 

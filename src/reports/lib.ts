@@ -1,7 +1,12 @@
 import { getDeliveryPaymentMethod } from "@/logistics/model"
 import type { Delivery } from "@/logistics/model"
 import type { Order } from "@/orders/model"
-import type { CashClosing, CashClosingMethod, CashClosingMethodSummary, ClosingComputation } from "./model"
+import type {
+  CashClosing,
+  CashClosingMethod,
+  CashClosingMethodSummary,
+  ClosingComputation,
+} from "./model"
 
 export { type ClosingComputation }
 
@@ -27,15 +32,7 @@ export const startOfDay = (date: Date): Date =>
   new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0)
 
 export const endOfDay = (date: Date): Date =>
-  new Date(
-    date.getFullYear(),
-    date.getMonth(),
-    date.getDate(),
-    23,
-    59,
-    59,
-    999
-  )
+  new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999)
 
 export const shiftDate = (date: Date, days: number): Date => {
   const next = new Date(date)
@@ -119,10 +116,7 @@ const timeFormatter = new Intl.DateTimeFormat("es-AR", {
   minute: "2-digit",
 })
 
-const isDeliveryInRange = (
-  delivery: Delivery,
-  dateKey: string
-): boolean => {
+const isDeliveryInRange = (delivery: Delivery, dateKey: string): boolean => {
   if (delivery.cancellationReason) return false
   return toLocalDateKey(new Date(delivery.deliveredAt)) === dateKey
 }
@@ -137,14 +131,16 @@ export const computeClosingForDate = (
   date: Date,
   deliveries: ReadonlyArray<Delivery>,
   orders: ReadonlyArray<Order>,
-  userNames: Map<string, string>,
+  userNames: Map<string, string>
 ): ClosingComputation => {
   const dateKey = toLocalDateKey(date)
 
   const successfulDeliveries = deliveries.filter((d) =>
     isDeliveryInRange(d, dateKey)
   )
-  const cancelledOrders = orders.filter((o) => isOrderUpdatedInRange(o, dateKey))
+  const cancelledOrders = orders.filter((o) =>
+    isOrderUpdatedInRange(o, dateKey)
+  )
 
   const paymentMethods = emptyMethodSummary()
   for (const delivery of successfulDeliveries) {

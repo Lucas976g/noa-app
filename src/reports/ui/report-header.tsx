@@ -64,7 +64,9 @@ export function ReportHeader({
           ) : canGenerate ? (
             <Button type="button" onClick={onGenerate}>
               <IconReportMoney data-icon="inline-start" />
-              {isWithinWindow ? "Generar cierre de caja" : "Generar cierre (demo)"}
+              {isWithinWindow
+                ? "Generar cierre de caja"
+                : "Generar cierre (demo)"}
             </Button>
           ) : null}
         </div>

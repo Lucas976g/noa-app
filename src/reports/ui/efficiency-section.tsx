@@ -18,8 +18,7 @@ type EfficiencySectionProps = {
 
 export function EfficiencySection({ closing }: EfficiencySectionProps) {
   const total = closing.deliveredCount + closing.rejectedCount
-  const successRate =
-    total > 0 ? (closing.deliveredCount / total) * 100 : 100
+  const successRate = total > 0 ? (closing.deliveredCount / total) * 100 : 100
 
   const isGoodRate = successRate >= 80
   const isWarningRate = successRate >= 50 && successRate < 80
@@ -41,9 +40,7 @@ export function EfficiencySection({ closing }: EfficiencySectionProps) {
       <CardContent className="flex flex-col gap-4">
         <div className="flex flex-col gap-2 rounded-lg border border-border bg-muted/30 p-4">
           <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">
-              Tasa de éxito
-            </span>
+            <span className="text-sm text-muted-foreground">Tasa de éxito</span>
             <span
               className={cn(
                 "text-2xl font-semibold tabular-nums",

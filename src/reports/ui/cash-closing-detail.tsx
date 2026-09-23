@@ -92,9 +92,7 @@ export function CashClosingDetail({ closing }: CashClosingDetailProps) {
       </Card>
 
       <footer className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-dashed border-border bg-muted/20 px-4 py-3 text-xs text-muted-foreground">
-        <span>
-          Cierre generado el {formatDateTime(closing.generatedAt)} hs
-        </span>
+        <span>Cierre generado el {formatDateTime(closing.generatedAt)} hs</span>
         <span className="font-mono uppercase">
           ID: {closing.id.slice(0, 8)}
         </span>

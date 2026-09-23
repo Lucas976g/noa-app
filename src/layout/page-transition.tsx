@@ -10,7 +10,7 @@ export function PageTransition({ children }: PageTransitionProps) {
   return (
     <div
       key={location.pathname}
-      className="flex min-h-0 min-w-0 flex-1 flex-col animate-page-in"
+      className="flex min-h-0 min-w-0 flex-1 animate-page-in flex-col"
     >
       {children}
     </div>

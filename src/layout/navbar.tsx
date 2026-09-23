@@ -136,19 +136,14 @@ export function Navbar() {
         >
           <SheetHeader className="sr-only">
             <SheetTitle>Menú principal</SheetTitle>
-            <SheetDescription>
-              Navegación de Distribuidora NOA
-            </SheetDescription>
+            <SheetDescription>Navegación de Distribuidora NOA</SheetDescription>
           </SheetHeader>
           <div className="border-b border-border px-5 py-4">
             <span className="text-sm font-medium tracking-tight">
               Distribuidora NOA
             </span>
           </div>
-          <nav
-            aria-label="Principal"
-            className="flex-1 overflow-y-auto p-3"
-          >
+          <nav aria-label="Principal" className="flex-1 overflow-y-auto p-3">
             <ul className="flex flex-col gap-0.5">
               {NAV_ITEMS.map((item) => (
                 <li key={item.to}>

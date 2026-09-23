@@ -43,9 +43,7 @@ export function CatalogPage() {
     const byCategory = selectByCategory(products, category)
     const normalized = query.trim().toLowerCase()
     if (!normalized) return byCategory
-    return byCategory.filter((p) =>
-      p.name.toLowerCase().includes(normalized)
-    )
+    return byCategory.filter((p) => p.name.toLowerCase().includes(normalized))
   }, [products, category, query])
 
   return (

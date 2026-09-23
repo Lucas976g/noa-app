@@ -93,11 +93,7 @@ export const normalizeOrderStatus = (
 ): OrderStatusId => {
   if (!raw) return "en-analisis"
   const s = raw.toLowerCase().trim()
-  if (
-    s.includes("cancel") ||
-    s.includes("rechaz") ||
-    s.includes("anul")
-  ) {
+  if (s.includes("cancel") || s.includes("rechaz") || s.includes("anul")) {
     return "cancelado"
   }
   if (
