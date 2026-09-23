@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react"
-import { IconInbox } from "@tabler/icons-react"
+import { useEffect, useMemo, useState } from "react"
+import { IconInbox, IconRefresh, IconSearch, IconX } from "@tabler/icons-react"
+import { toast } from "sonner"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -10,6 +11,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty"
+import { Input } from "@/components/ui/input"
 import { Spinner } from "@/components/ui/spinner"
 import {
   Table,
@@ -19,47 +21,82 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { cancelOrder, fetchOrders, updateOrder } from "@/orders/api"
-import type { Order } from "@/orders/model"
-import { getOrderStatus, PAYMENT_METHODS } from "@/orders/model"
+import type { Order, PaymentMethod } from "@/orders/model"
+import { PAYMENT_METHODS } from "@/orders/model"
+import { useOrdersStore } from "@/orders/store"
+import { OrdersPagination } from "@/orders/ui/orders-pagination"
+import { OrderStatusBadge } from "@/orders/ui/order-status-badge"
 import { ProcessOrderDialog } from "@/orders/ui/process-order-dialog"
 import { formatCurrency, formatDate } from "@/shared/lib/format"
-import { toast } from "sonner"
 
+const PAGE_SIZE = 8
+
+/**
+ * Admin page for reviewing and processing incoming orders pending analysis.
+ */
 export function AdminPedidosPage() {
-  const [orders, setOrders] = useState<Order[]>([])
+  const orders = useOrdersStore((s) => s.orders)
+  const isLoading = useOrdersStore((s) => s.isLoading)
+  const loadError = useOrdersStore((s) => s.loadError)
+  const loadOrders = useOrdersStore((s) => s.loadOrders)
+  const updateOrder = useOrdersStore((s) => s.updateOrder)
+
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [paymentFilter, setPaymentFilter] = useState<PaymentMethod | "all">(
+    "all"
+  )
+  const [currentPage, setCurrentPage] = useState(1)
+  const [isRefreshing, setIsRefreshing] = useState(false)
 
   useEffect(() => {
     document.title = "Pedidos · Distribuidora NOA"
+    void loadOrders()
+  }, [loadOrders])
 
-    let active = true
-    void fetchOrders()
-      .then((loadedOrders) => {
-        if (!active) return
-        // Filtramos solo los pedidos que están pendientes de análisis
-        setOrders(
-          loadedOrders.filter((order) => order.status === "en-analisis")
-        )
-      })
-      .catch((loadError: unknown) => {
-        if (!active) return
-        setError(
-          loadError instanceof Error
-            ? loadError.message
-            : "No pudimos cargar los pedidos."
-        )
-      })
-      .finally(() => {
-        if (active) setLoading(false)
-      })
+  // Filter pending analysis orders first
+  const pendingOrders = useMemo(
+    () => orders.filter((order) => order.status === "en-analisis"),
+    [orders]
+  )
 
-    return () => {
-      active = false
+  // Apply search query and payment filter
+  const filteredOrders = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase()
+    return pendingOrders.filter((order) => {
+      const matchesPayment =
+        paymentFilter === "all" || order.paymentMethod === paymentFilter
+      if (!matchesPayment) return false
+
+      if (!query) return true
+      return (
+        order.id.toLowerCase().includes(query) ||
+        order.userName.toLowerCase().includes(query) ||
+        (order.deliveryAddress ?? "").toLowerCase().includes(query)
+      )
+    })
+  }, [pendingOrders, searchTerm, paymentFilter])
+
+  // Calculate total pages and safe clamped page
+  const totalPages = Math.max(1, Math.ceil(filteredOrders.length / PAGE_SIZE))
+  const safeCurrentPage = Math.min(currentPage, totalPages)
+
+  const paginatedOrders = useMemo(() => {
+    const startIndex = (safeCurrentPage - 1) * PAGE_SIZE
+    return filteredOrders.slice(startIndex, startIndex + PAGE_SIZE)
+  }, [filteredOrders, safeCurrentPage])
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true)
+    try {
+      await loadOrders()
+      toast.success("Pedidos sincronizados")
+    } catch {
+      toast.error("No pudimos actualizar los pedidos")
+    } finally {
+      setIsRefreshing(false)
     }
-  }, [])
+  }
 
   const handleApprove = async () => {
     if (!selectedOrder) return
@@ -67,7 +104,6 @@ export function AdminPedidosPage() {
     const clientName = selectedOrder.userName
     try {
       await updateOrder(orderId, { status: "en-proceso" })
-      setOrders((current) => current.filter((order) => order.id !== orderId))
       setSelectedOrder(null)
       toast.success("Pedido aprobado con éxito", {
         description: `El pedido de ${clientName} (#${orderId.slice(0, 8).toUpperCase()}) pasó a "En proceso".`,
@@ -87,14 +123,14 @@ export function AdminPedidosPage() {
     const orderId = selectedOrder.id
     const clientName = selectedOrder.userName
     try {
-      await cancelOrder(orderId, {
+      await updateOrder(orderId, {
+        status: "cancelado",
         reason,
         observations: observations ?? "",
       })
-      setOrders((current) => current.filter((order) => order.id !== orderId))
       setSelectedOrder(null)
       toast.success("Pedido cancelado", {
-        description: `El pedido de ${clientName} (#${orderId.slice(0, 8).toUpperCase()}) fue cancelado correctamente.`,
+        description: `El pedido de ${clientName} (#${orderId.slice(0, 8).toUpperCase()}) fue cancelado.`,
       })
     } catch (err) {
       toast.error("Error al cancelar el pedido", {
@@ -106,75 +142,200 @@ export function AdminPedidosPage() {
     }
   }
 
+  const showInitialLoading = isLoading && orders.length === 0
+
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto p-6">
-      <header className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+      {/* Header with Title and Actions */}
+      <header className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-3">
             <h1 className="font-heading text-[1.65rem] font-semibold tracking-tight">
-              Pedidos
+              Recepción de Pedidos
             </h1>
-            {!loading && orders.length > 0 && (
-              <Badge variant="secondary" className="text-xs font-medium">
-                {orders.length}{" "}
-                {orders.length === 1 ? "pendiente" : "pendientes"}
+            {!isLoading && (
+              <Badge variant="secondary" className="text-xs font-semibold">
+                {pendingOrders.length}{" "}
+                {pendingOrders.length === 1 ? "pendiente" : "pendientes"}
               </Badge>
             )}
           </div>
           <p className="text-sm text-muted-foreground">
-            Revisá los pedidos pendientes de análisis y decidí cómo procesarlos.
+            Revisá los pedidos en análisis, verificá disponibilidad y aprobalos
+            para preparación o cancelalos con motivo.
           </p>
         </div>
+
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => void handleRefresh()}
+          disabled={isLoading || isRefreshing}
+          className="gap-1.5 self-start text-xs font-medium sm:self-auto"
+        >
+          <IconRefresh
+            className={`size-3.5 ${isRefreshing ? "animate-spin" : ""}`}
+            aria-hidden
+          />
+          <span>Actualizar</span>
+        </Button>
       </header>
 
-      {loading ? (
-        <div className="flex flex-1 items-center justify-center py-20">
+      {/* Search and Quick Filters Bar */}
+      <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 shadow-xs sm:flex-row sm:items-center sm:justify-between">
+        <div className="relative flex-1 sm:max-w-md">
+          <IconSearch
+            className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+            aria-hidden
+          />
+          <Input
+            type="search"
+            value={searchTerm}
+            onChange={(e) => {
+              setSearchTerm(e.target.value)
+              setCurrentPage(1)
+            }}
+            placeholder="Buscar por ID, cliente o dirección…"
+            className="h-9 pr-8 pl-9 text-xs"
+          />
+          {searchTerm.length > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                setSearchTerm("")
+                setCurrentPage(1)
+              }}
+              className="absolute top-1/2 right-2.5 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              aria-label="Limpiar búsqueda"
+            >
+              <IconX className="size-3.5" aria-hidden />
+            </button>
+          )}
+        </div>
+
+        <div className="flex items-center gap-1.5">
+          <span className="mr-1 text-xs text-muted-foreground">Pago:</span>
+          <Button
+            type="button"
+            variant={paymentFilter === "all" ? "default" : "outline"}
+            size="sm"
+            className="h-7 px-2.5 text-xs"
+            onClick={() => {
+              setPaymentFilter("all")
+              setCurrentPage(1)
+            }}
+          >
+            Todos
+          </Button>
+          <Button
+            type="button"
+            variant={
+              paymentFilter === "cuenta-corriente" ? "default" : "outline"
+            }
+            size="sm"
+            className="h-7 px-2.5 text-xs"
+            onClick={() => {
+              setPaymentFilter("cuenta-corriente")
+              setCurrentPage(1)
+            }}
+          >
+            Cta. Cte.
+          </Button>
+          <Button
+            type="button"
+            variant={paymentFilter === "contado" ? "default" : "outline"}
+            size="sm"
+            className="h-7 px-2.5 text-xs"
+            onClick={() => {
+              setPaymentFilter("contado")
+              setCurrentPage(1)
+            }}
+          >
+            Contado
+          </Button>
+        </div>
+      </div>
+
+      {/* Main Content Area */}
+      {showInitialLoading ? (
+        <div className="flex flex-1 items-center justify-center py-24">
           <Spinner className="size-6 text-muted-foreground" />
         </div>
-      ) : error ? (
-        <Empty className="border border-dashed">
+      ) : loadError && orders.length === 0 ? (
+        <Empty className="border border-dashed py-12">
           <EmptyHeader>
             <EmptyMedia variant="icon">
               <IconInbox />
             </EmptyMedia>
             <EmptyTitle>Error al cargar pedidos</EmptyTitle>
-            <EmptyDescription>{error}</EmptyDescription>
+            <EmptyDescription>{loadError}</EmptyDescription>
           </EmptyHeader>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => void loadOrders()}
+          >
+            Reintentar
+          </Button>
         </Empty>
-      ) : orders.length === 0 ? (
-        <Empty className="border border-dashed">
+      ) : pendingOrders.length === 0 ? (
+        <Empty className="border border-dashed py-14">
           <EmptyHeader>
             <EmptyMedia variant="icon">
               <IconInbox />
             </EmptyMedia>
-            <EmptyTitle>No hay pedidos pendientes</EmptyTitle>
+            <EmptyTitle>Bandeja al día</EmptyTitle>
             <EmptyDescription>
-              Los pedidos en análisis aparecerán en esta lista.
+              No hay pedidos pendientes de análisis en este momento.
             </EmptyDescription>
           </EmptyHeader>
         </Empty>
+      ) : filteredOrders.length === 0 ? (
+        <Empty className="border border-dashed py-14">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <IconInbox />
+            </EmptyMedia>
+            <EmptyTitle>Sin coincidencias</EmptyTitle>
+            <EmptyDescription>
+              Ningún pedido pendiente coincide con los filtros aplicados.
+            </EmptyDescription>
+          </EmptyHeader>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setSearchTerm("")
+              setPaymentFilter("all")
+            }}
+          >
+            Limpiar filtros
+          </Button>
+        </Empty>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-border bg-card shadow-xs">
+        <div className="flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-xs">
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/30">
                 <TableHead className="w-28 text-center">ID</TableHead>
                 <TableHead className="text-left">Cliente</TableHead>
                 <TableHead className="text-center">Fecha</TableHead>
-                <TableHead className="text-center">Cantidad</TableHead>
-                <TableHead className="text-right">Subtotal</TableHead>
+                <TableHead className="text-center">Productos</TableHead>
+                <TableHead className="text-right">Total</TableHead>
                 <TableHead className="text-center">Estado</TableHead>
                 <TableHead className="text-center">Pago</TableHead>
                 <TableHead className="w-28 text-center">Acción</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {orders.map((order) => {
-                const status = getOrderStatus(order.status)
+              {paginatedOrders.map((order) => {
                 const payment = PAYMENT_METHODS.find(
                   (method) => method.id === order.paymentMethod
                 )
-                const quantity = order.items.reduce(
+                const totalItemsCount = order.items.reduce(
                   (total, item) => total + item.quantity,
                   0
                 )
@@ -207,7 +368,7 @@ export function AdminPedidosPage() {
                     </TableCell>
                     <TableCell className="text-center tabular-nums">
                       {order.items && order.items.length > 0 ? (
-                        <span className="font-medium">{quantity}</span>
+                        <span className="font-medium">{totalItemsCount}</span>
                       ) : (
                         <span className="text-xs text-muted-foreground">—</span>
                       )}
@@ -216,7 +377,7 @@ export function AdminPedidosPage() {
                       {formatCurrency(order.subtotal)}
                     </TableCell>
                     <TableCell className="text-center">
-                      <Badge variant={status.tone}>{status.label}</Badge>
+                      <OrderStatusBadge status={order.status} />
                     </TableCell>
                     <TableCell className="text-center">
                       <Badge variant="outline">
@@ -238,9 +399,19 @@ export function AdminPedidosPage() {
               })}
             </TableBody>
           </Table>
+
+          {/* Pagination bar */}
+          <OrdersPagination
+            currentPage={safeCurrentPage}
+            totalPages={totalPages}
+            totalItems={filteredOrders.length}
+            pageSize={PAGE_SIZE}
+            onPageChange={setCurrentPage}
+          />
         </div>
       )}
 
+      {/* Modal Dialog for Processing or Cancelling Order */}
       {selectedOrder ? (
         <ProcessOrderDialog
           key={selectedOrder.id}

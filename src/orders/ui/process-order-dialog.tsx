@@ -1,5 +1,11 @@
 import { useEffect, useState } from "react"
-import { IconReceipt } from "@tabler/icons-react"
+import {
+  IconAlertTriangle,
+  IconCheck,
+  IconMapPin,
+  IconReceipt,
+  IconX,
+} from "@tabler/icons-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -11,15 +17,20 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Field, FieldDescription, FieldLabel } from "@/components/ui/field"
+import { Field, FieldLabel } from "@/components/ui/field"
 import { Separator } from "@/components/ui/separator"
 import { Spinner } from "@/components/ui/spinner"
 import { Textarea } from "@/components/ui/textarea"
 import { fetchOrder } from "@/orders/api"
-import { getOrderStatus, PAYMENT_METHODS, type Order } from "@/orders/model"
+import {
+  ORDER_CANCEL_REASONS,
+  PAYMENT_METHODS,
+  type Order,
+} from "@/orders/model"
+import { OrderStatusBadge } from "@/orders/ui/order-status-badge"
 import { formatCurrency, formatDateTime } from "@/shared/lib/format"
 
-type ProcessOrderDialogProps = {
+export type ProcessOrderDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   order: Order
@@ -27,8 +38,12 @@ type ProcessOrderDialogProps = {
   onCancel: (reason: string, observations?: string) => Promise<void> | void
 }
 
-type Mode = "default" | "cancel"
+type DialogMode = "default" | "cancel"
 
+/**
+ * Modal dialog for reviewing, approving or cancelling a pending order.
+ * Displays order items, delivery details, and structured cancellation reasons.
+ */
 export function ProcessOrderDialog({
   open,
   onOpenChange,
@@ -36,7 +51,8 @@ export function ProcessOrderDialog({
   onApprove,
   onCancel,
 }: ProcessOrderDialogProps) {
-  const [mode, setMode] = useState<Mode>("default")
+  const [mode, setMode] = useState<DialogMode>("default")
+  const [selectedReasonId, setSelectedReasonId] = useState<string>("")
   const [reason, setReason] = useState("")
   const [observations, setObservations] = useState("")
   const [fetchedOrder, setFetchedOrder] = useState<Order | null>(null)
@@ -59,7 +75,7 @@ export function ProcessOrderDialog({
       })
       .catch((err: unknown) => {
         if (active) setLoadFailed(true)
-        console.warn("Error al cargar detalles del pedido:", err)
+        console.warn("Error loading order items:", err)
       })
 
     return () => {
@@ -70,6 +86,7 @@ export function ProcessOrderDialog({
   const handleOpenChange = (nextOpen: boolean) => {
     if (!nextOpen) {
       setMode("default")
+      setSelectedReasonId("")
       setReason("")
       setObservations("")
       setFetchedOrder(null)
@@ -78,7 +95,6 @@ export function ProcessOrderDialog({
     onOpenChange(nextOpen)
   }
 
-  const status = getOrderStatus(details.status)
   const paymentLabel =
     PAYMENT_METHODS.find((m) => m.id === details.paymentMethod)?.label ??
     details.paymentMethod
@@ -86,6 +102,15 @@ export function ProcessOrderDialog({
   const trimmedReason = reason.trim()
   const trimmedObservations = observations.trim()
   const canConfirmCancel = trimmedReason.length > 0
+
+  const handleSelectPresetReason = (presetId: string, presetLabel: string) => {
+    setSelectedReasonId(presetId)
+    if (presetId === "other") {
+      setReason("")
+    } else {
+      setReason(presetLabel)
+    }
+  }
 
   const handleApproveClick = async () => {
     if (submitting) return
@@ -115,33 +140,50 @@ export function ProcessOrderDialog({
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <div className="flex flex-col gap-1.5">
-            <DialogTitle>Procesar pedido #{shortId}</DialogTitle>
+            <div className="flex items-center justify-between gap-2">
+              <DialogTitle>Procesar pedido #{shortId}</DialogTitle>
+              <OrderStatusBadge status={details.status} />
+            </div>
             <DialogDescription>
-              <span className="text-foreground">{details.userName}</span>
+              <span className="font-medium text-foreground">
+                {details.userName}
+              </span>
               {" · "}
               {formatDateTime(details.createdAt)}
             </DialogDescription>
           </div>
-          <div className="flex flex-wrap items-center gap-2 pt-1">
-            <Badge variant={status.tone}>{status.label}</Badge>
+
+          <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
             <Badge variant="outline">{paymentLabel}</Badge>
+            {details.deliveryAddress && (
+              <span className="flex items-center gap-1 text-muted-foreground">
+                <IconMapPin className="size-3.5 shrink-0" aria-hidden />
+                <span className="max-w-[300px] truncate">
+                  {details.deliveryAddress}
+                </span>
+              </span>
+            )}
           </div>
         </DialogHeader>
 
         <Separator />
 
+        {/* ORDER ITEMS LIST */}
         <div className="flex flex-col">
-          <div className="flex items-center justify-between px-1 pb-3 text-muted-foreground">
+          <div className="flex items-center justify-between px-1 pb-2 text-muted-foreground">
             <div className="flex items-center gap-2">
               <IconReceipt className="size-3.5" aria-hidden />
-              <span className="text-xs tracking-wider uppercase">
+              <span className="text-xs font-semibold tracking-wider uppercase">
                 {details.items.length}{" "}
                 {details.items.length === 1 ? "producto" : "productos"}
               </span>
             </div>
-            {loadingDetails ? (
-              <Spinner className="size-3.5 text-muted-foreground" />
-            ) : null}
+            {loadingDetails && (
+              <div className="flex items-center gap-1.5 text-xs">
+                <Spinner className="size-3.5 text-muted-foreground" />
+                <span>Cargando detalle…</span>
+              </div>
+            )}
           </div>
 
           {loadingDetails && details.items.length === 0 ? (
@@ -153,20 +195,20 @@ export function ProcessOrderDialog({
               Sin productos detallados para este pedido.
             </div>
           ) : (
-            <ul className="flex max-h-60 flex-col divide-y divide-border overflow-y-auto rounded-lg border border-border">
+            <ul className="flex max-h-56 flex-col divide-y divide-border overflow-y-auto rounded-lg border border-border">
               {details.items.map((item) => {
                 const lineTotal = item.price * item.quantity
                 return (
                   <li
                     key={item.productId || item.name}
-                    className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-0.5 px-3 py-2.5 text-sm"
+                    className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-0.5 px-3 py-2 text-sm"
                   >
                     <div className="flex min-w-0 flex-col">
                       <span className="truncate font-medium">{item.name}</span>
                       <span className="text-xs text-muted-foreground tabular-nums">
                         {item.quantity}{" "}
                         {item.quantity === 1 ? "unidad" : "unidades"} ·{" "}
-                        {formatCurrency(item.price)} {item.unit}
+                        {formatCurrency(item.price)} / {item.unit}
                       </span>
                     </div>
                     <span className="self-center text-right font-medium tabular-nums">
@@ -178,53 +220,107 @@ export function ProcessOrderDialog({
             </ul>
           )}
 
-          <div className="flex items-center justify-between px-1 pt-4">
-            <span className="text-sm text-muted-foreground">Subtotal</span>
-            <span className="text-lg font-semibold tabular-nums">
+          {/* TOTAL BREAKDOWN */}
+          <div className="flex items-center justify-between px-1 pt-3">
+            <span className="text-sm font-medium text-muted-foreground">
+              Total
+            </span>
+            <span className="text-lg font-bold text-foreground tabular-nums">
               {formatCurrency(details.subtotal)}
             </span>
           </div>
+
+          {/* OBSERVATIONS NOTICE IF CLIENT LEFT ANY */}
+          {details.observations && (
+            <div className="mt-2 rounded-lg bg-muted/40 p-2.5 text-xs text-muted-foreground">
+              <strong className="text-foreground">Nota del cliente:</strong>{" "}
+              {details.observations}
+            </div>
+          )}
         </div>
 
-        {mode === "cancel" ? (
+        {/* CANCELLATION FORM MODE */}
+        {mode === "cancel" && (
           <>
             <Separator />
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-3 rounded-lg border border-destructive/20 bg-destructive/5 p-3">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-destructive">
+                <IconAlertTriangle className="size-4" aria-hidden />
+                <span>Cancelar Pedido</span>
+              </div>
+
+              {/* Preset cancellation reason chips */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-medium text-foreground">
+                  Seleccioná un motivo:
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {ORDER_CANCEL_REASONS.map((preset) => {
+                    const isChosen = selectedReasonId === preset.id
+                    return (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        onClick={() =>
+                          handleSelectPresetReason(preset.id, preset.label)
+                        }
+                        className={`rounded-md border px-2.5 py-1 text-xs transition-colors ${
+                          isChosen
+                            ? "text-destructive-foreground border-destructive bg-destructive font-medium"
+                            : "border-border bg-card text-muted-foreground hover:bg-muted"
+                        }`}
+                      >
+                        {preset.label}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Custom reason textarea */}
               <Field>
-                <FieldLabel htmlFor="cancel-reason">
-                  Motivo de cancelación{" "}
+                <FieldLabel htmlFor="cancel-reason" className="text-xs">
+                  Motivo que se registrará:{" "}
                   <span className="text-destructive">*</span>
                 </FieldLabel>
                 <Textarea
                   id="cancel-reason"
                   value={reason}
-                  onChange={(e) => setReason(e.target.value)}
-                  placeholder="Ej: Falta de Stock, error en la carga del pedido, dirección incorrecta, etc."
+                  onChange={(e) => {
+                    setReason(e.target.value)
+                    if (
+                      !ORDER_CANCEL_REASONS.some(
+                        (r) => r.label === e.target.value
+                      )
+                    ) {
+                      setSelectedReasonId("other")
+                    }
+                  }}
+                  placeholder="Describí el motivo de cancelación..."
                   rows={2}
                   disabled={submitting}
-                  autoFocus
+                  className="text-xs"
                 />
-                <FieldDescription>
-                  Le avisaremos al cliente el motivo.
-                </FieldDescription>
               </Field>
 
+              {/* Optional Observations */}
               <Field>
-                <FieldLabel htmlFor="cancel-observations">
-                  Observaciones adicionales (opcional)
+                <FieldLabel htmlFor="cancel-observations" className="text-xs">
+                  Observaciones internas (opcional)
                 </FieldLabel>
                 <Textarea
                   id="cancel-observations"
                   value={observations}
                   onChange={(e) => setObservations(e.target.value)}
-                  placeholder="Ej: El cliente indicó que volverá a cargar el pedido la próxima semana, verificar saldo pendiente, etc."
+                  placeholder="Detalles adicionales para registro administrativo..."
                   rows={2}
                   disabled={submitting}
+                  className="text-xs"
                 />
               </Field>
             </div>
           </>
-        ) : null}
+        )}
 
         <DialogFooter>
           {mode === "default" ? (
@@ -234,7 +330,9 @@ export function ProcessOrderDialog({
                 variant="outline"
                 disabled={submitting}
                 onClick={() => setMode("cancel")}
+                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
               >
+                <IconX className="size-4" data-icon="inline-start" />
                 Cancelar pedido
               </Button>
               <Button
@@ -248,7 +346,10 @@ export function ProcessOrderDialog({
                     Aprobando…
                   </>
                 ) : (
-                  "Aprobar pedido"
+                  <>
+                    <IconCheck className="size-4" data-icon="inline-start" />
+                    Aprobar pedido
+                  </>
                 )}
               </Button>
             </>
@@ -260,6 +361,7 @@ export function ProcessOrderDialog({
                 disabled={submitting}
                 onClick={() => {
                   setMode("default")
+                  setSelectedReasonId("")
                   setReason("")
                   setObservations("")
                 }}

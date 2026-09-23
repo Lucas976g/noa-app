@@ -88,6 +88,35 @@ export const ORDER_STATUSES: ReadonlyArray<OrderStatus> = [
   { id: "cancelado", label: "Cancelado", tone: "destructive" },
 ]
 
+export type OrderCancelReasonPreset = {
+  readonly id: string
+  readonly label: string
+  readonly description?: string
+}
+
+export const ORDER_CANCEL_REASONS: ReadonlyArray<OrderCancelReasonPreset> = [
+  {
+    id: "out-of-stock",
+    label: "Falta de stock o mercadería discontinuada",
+  },
+  {
+    id: "credit-limit",
+    label: "Límite de crédito superado / cuenta bloqueada",
+  },
+  {
+    id: "data-inconsistency",
+    label: "Error o inconsistencia en los datos del pedido",
+  },
+  {
+    id: "client-request",
+    label: "Solicitud de cancelación por parte del cliente",
+  },
+  {
+    id: "other",
+    label: "Otro motivo",
+  },
+]
+
 export const normalizeOrderStatus = (
   raw: string | undefined | null
 ): OrderStatusId => {

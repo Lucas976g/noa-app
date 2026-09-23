@@ -1,7 +1,9 @@
-import { useEffect, useState } from "react"
-import { IconChartBar, IconTruck, IconX } from "@tabler/icons-react"
+import { useCallback, useEffect, useMemo, useState } from "react"
+import { IconEye, IconInbox, IconRefresh } from "@tabler/icons-react"
+import { toast } from "sonner"
 
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import {
   Empty,
   EmptyDescription,
@@ -9,7 +11,6 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty"
-import { Input } from "@/components/ui/input"
 import { Spinner } from "@/components/ui/spinner"
 import {
   Table,
@@ -19,397 +20,359 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { fetchOrders } from "@/orders/api"
-import type { Order, OrderStatusId, PaymentMethod } from "@/orders/model"
-import { getOrderStatus, PAYMENT_METHODS } from "@/orders/model"
-import { formatCurrency } from "@/shared/lib/format"
-import { Button } from "@/components/ui/button"
+import { clientLabel } from "@/logistics/client-label"
+import type { OrderStatusId, PaymentMethod } from "@/orders/model"
+import { PAYMENT_METHODS } from "@/orders/model"
+import { useOrdersStore } from "@/orders/store"
+import { OrderDetailDialog } from "@/orders/ui/order-detail-dialog"
+import { OrderMetricsCards } from "@/orders/ui/order-metrics-cards"
+import { OrdersFiltersBar } from "@/orders/ui/orders-filters-bar"
+import { OrdersPagination } from "@/orders/ui/orders-pagination"
+import { OrderStatusBadge } from "@/orders/ui/order-status-badge"
+import { OrderStatusDistribution } from "@/orders/ui/order-status-distribution"
+import { formatCurrency, formatDate } from "@/shared/lib/format"
 
-const STATUS_FILTER_LABELS: Record<OrderStatusId | "all", string> = {
-  all: "Todos",
-  "en-analisis": "En análisis",
-  "en-proceso": "En proceso",
-  entregado: "Entregados",
-  cancelado: "Cancelados",
-}
+const PAGE_SIZE = 10
 
+/**
+ * Admin monitoring dashboard page for real-time visibility into all orders,
+ * lifecycle progression metrics, payment distribution, and detailed inspection.
+ */
 export function AdminMonitoreoPage() {
-  const [orders, setOrders] = useState<Order[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const orders = useOrdersStore((s) => s.orders)
+  const isLoading = useOrdersStore((s) => s.isLoading)
+  const loadError = useOrdersStore((s) => s.loadError)
+  const loadOrders = useOrdersStore((s) => s.loadOrders)
+  const hydrateOrder = useOrdersStore((s) => s.hydrateOrder)
+
   const [statusFilter, setStatusFilter] = useState<OrderStatusId | "all">("all")
   const [paymentFilter, setPaymentFilter] = useState<PaymentMethod | "all">(
     "all"
   )
   const [searchTerm, setSearchTerm] = useState("")
+  const [currentPage, setCurrentPage] = useState(1)
+  const [isRefreshing, setIsRefreshing] = useState(false)
 
-  useEffect(() => {
-    document.title = "Monitoreo de los pedidos · Distribuidora NOA"
+  // Order inspection state for OrderDetailDialog
+  const [inspectId, setInspectId] = useState<string | null>(null)
+  const [itemsError, setItemsError] = useState<string | null>(null)
+  const inspectOrder = orders.find((o) => o.id === inspectId)
 
-    let active = true
-    void fetchOrders()
-      .then((loadedOrders) => {
-        if (!active) return
-        setOrders(loadedOrders)
-      })
-      .catch((loadError: unknown) => {
-        if (!active) return
-        setError(
-          loadError instanceof Error
-            ? loadError.message
-            : "No pudimos cargar los pedidos de monitoreo."
-        )
-      })
-      .finally(() => {
-        if (active) setLoading(false)
-      })
+  const isLoadingItems =
+    inspectOrder !== undefined && inspectOrder.items.length === 0 && !itemsError
 
-    return () => {
-      active = false
-    }
-  }, [])
-
-  // Cálculos para métricas y gráficos
-  const totalOrders = orders.length
-  const countAnalisis = orders.filter((o) => o.status === "en-analisis").length
-  const countProceso = orders.filter((o) => o.status === "en-proceso").length
-  const countEntregados = orders.filter((o) => o.status === "entregado").length
-  const countCancelados = orders.filter((o) => o.status === "cancelado").length
-
-  const countCC = orders.filter(
-    (o) => o.paymentMethod === "cuenta-corriente"
-  ).length
-  const countContado = orders.filter(
-    (o) => o.paymentMethod === "contado"
-  ).length
-
-  const maxStatusCount = Math.max(
-    countAnalisis,
-    countProceso,
-    countEntregados,
-    countCancelados,
-    1
+  const loadOrderItems = useCallback(
+    (id: string) =>
+      hydrateOrder(id)
+        .then(() => setItemsError(null))
+        .catch((error: unknown) => {
+          setItemsError(
+            error instanceof Error
+              ? error.message
+              : "No pudimos cargar el detalle de los productos."
+          )
+        }),
+    [hydrateOrder]
   )
 
-  // Filtrado de pedidos para la tabla de seguimiento
-  const filteredOrders = orders.filter((order) => {
-    const matchesStatus =
-      statusFilter === "all" || order.status === statusFilter
-    const matchesPayment =
-      paymentFilter === "all" || order.paymentMethod === paymentFilter
-    const matchesSearch =
-      order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (order.deliveryAddress ?? "")
-        .toLowerCase()
-        .includes(searchTerm.toLowerCase())
+  useEffect(() => {
+    document.title = "Monitoreo de Pedidos · Distribuidora NOA"
+    void loadOrders()
+  }, [loadOrders])
 
-    return matchesStatus && matchesPayment && matchesSearch
-  })
+  useEffect(() => {
+    if (inspectId) {
+      void loadOrderItems(inspectId)
+    }
+  }, [inspectId, loadOrderItems])
+
+  // Count distribution across all orders
+  const statusCounts = useMemo<Record<OrderStatusId | "all", number>>(
+    () => ({
+      all: orders.length,
+      "en-analisis": orders.filter((o) => o.status === "en-analisis").length,
+      "en-proceso": orders.filter((o) => o.status === "en-proceso").length,
+      entregado: orders.filter((o) => o.status === "entregado").length,
+      cancelado: orders.filter((o) => o.status === "cancelado").length,
+    }),
+    [orders]
+  )
+
+  // Filter orders matching status, payment, and search term
+  const filteredOrders = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase()
+    return orders.filter((order) => {
+      const matchesStatus =
+        statusFilter === "all" || order.status === statusFilter
+      const matchesPayment =
+        paymentFilter === "all" || order.paymentMethod === paymentFilter
+      if (!matchesStatus || !matchesPayment) return false
+
+      if (!query) return true
+      return (
+        order.id.toLowerCase().includes(query) ||
+        order.userName.toLowerCase().includes(query) ||
+        (order.deliveryAddress ?? "").toLowerCase().includes(query)
+      )
+    })
+  }, [orders, statusFilter, paymentFilter, searchTerm])
+
+  const handleSearchChange = (query: string) => {
+    setSearchTerm(query)
+    setCurrentPage(1)
+  }
+
+  const handleStatusChange = (status: OrderStatusId | "all") => {
+    setStatusFilter(status)
+    setCurrentPage(1)
+  }
+
+  const handlePaymentChange = (payment: PaymentMethod | "all") => {
+    setPaymentFilter(payment)
+    setCurrentPage(1)
+  }
+
+  // Calculate total pages and safe clamped page
+  const totalPages = Math.max(1, Math.ceil(filteredOrders.length / PAGE_SIZE))
+  const safeCurrentPage = Math.min(currentPage, totalPages)
+
+  const paginatedOrders = useMemo(() => {
+    const startIndex = (safeCurrentPage - 1) * PAGE_SIZE
+    return filteredOrders.slice(startIndex, startIndex + PAGE_SIZE)
+  }, [filteredOrders, safeCurrentPage])
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true)
+    try {
+      await loadOrders()
+      toast.success("Datos de monitoreo actualizados")
+    } catch {
+      toast.error("No pudimos actualizar los datos")
+    } finally {
+      setIsRefreshing(false)
+    }
+  }
+
+  const showInitialLoading = isLoading && orders.length === 0
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto p-6">
-      <header className="flex flex-col gap-1">
-        <h1 className="font-heading text-[1.65rem] font-semibold tracking-tight">
-          Monitoreo de Pedidos
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Seguimiento y control de los pedidos en tiempo real.
-        </p>
+      {/* Top Header */}
+      <header className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="font-heading text-[1.65rem] font-semibold tracking-tight">
+            Monitoreo de Pedidos
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Seguimiento en tiempo real de los estados de los pedidos y control
+            operativo del flujo comercial.
+          </p>
+        </div>
+
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => void handleRefresh()}
+          disabled={isLoading || isRefreshing}
+          className="gap-1.5 self-start text-xs font-medium sm:self-auto"
+        >
+          <IconRefresh
+            className={`size-3.5 ${isRefreshing ? "animate-spin" : ""}`}
+            aria-hidden
+          />
+          <span>Actualizar</span>
+        </Button>
       </header>
 
-      {/* SECCIÓN DE GRÁFICOS Y MÉTRICAS */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        {/* Gráfico de Estados */}
-        <div className="flex flex-col justify-between rounded-xl border border-border bg-card p-4 lg:col-span-2">
-          <div className="mb-3 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <IconChartBar className="size-4 text-primary" />
-              <h2 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
-                Estados de los Pedidos
-              </h2>
-            </div>
-            <span className="text-[11px] text-muted-foreground italic">
-              Haz clic en una barra para filtrar
-            </span>
-          </div>
+      {/* KPI METRICS AND DISTRIBUTION VISUALS */}
+      <div className="flex flex-col gap-4">
+        {/* KPI Cards */}
+        <OrderMetricsCards orders={orders} />
 
-          <div className="flex flex-col gap-3 py-2">
-            {/* Barra En Análisis */}
-            <button
-              type="button"
-              onClick={() => setStatusFilter("en-analisis")}
-              className={`group flex w-full cursor-pointer items-center gap-3 rounded-lg p-2 text-left transition-all hover:bg-muted/50 ${statusFilter === "en-analisis" ? "bg-amber-500/10 ring-1 ring-amber-500" : ""}`}
-            >
-              <span className="w-24 text-xs font-medium text-muted-foreground group-hover:text-foreground">
-                En Análisis
-              </span>
-              <div className="relative h-4 flex-1 overflow-hidden rounded-full bg-muted/60">
-                <div
-                  className="h-full rounded-full bg-amber-500 transition-all"
-                  style={{
-                    width: `${Math.max((countAnalisis / maxStatusCount) * 100, countAnalisis > 0 ? 8 : 2)}%`,
-                  }}
-                />
-              </div>
-              <span className="w-12 text-right text-base font-bold text-amber-500">
-                {countAnalisis}
-              </span>
-            </button>
-
-            {/* Barra En Proceso */}
-            <button
-              type="button"
-              onClick={() => setStatusFilter("en-proceso")}
-              className={`group flex w-full cursor-pointer items-center gap-3 rounded-lg p-2 text-left transition-all hover:bg-muted/50 ${statusFilter === "en-proceso" ? "bg-blue-500/10 ring-1 ring-blue-500" : ""}`}
-            >
-              <span className="w-24 text-xs font-medium text-muted-foreground group-hover:text-foreground">
-                En Proceso
-              </span>
-              <div className="relative h-4 flex-1 overflow-hidden rounded-full bg-muted/60">
-                <div
-                  className="h-full rounded-full bg-blue-500 transition-all"
-                  style={{
-                    width: `${Math.max((countProceso / maxStatusCount) * 100, countProceso > 0 ? 8 : 2)}%`,
-                  }}
-                />
-              </div>
-              <span className="w-12 text-right text-base font-bold text-blue-500">
-                {countProceso}
-              </span>
-            </button>
-
-            {/* Barra Entregados */}
-            <button
-              type="button"
-              onClick={() => setStatusFilter("entregado")}
-              className={`group flex w-full cursor-pointer items-center gap-3 rounded-lg p-2 text-left transition-all hover:bg-muted/50 ${statusFilter === "entregado" ? "bg-emerald-500/10 ring-1 ring-emerald-500" : ""}`}
-            >
-              <span className="w-24 text-xs font-medium text-muted-foreground group-hover:text-foreground">
-                Entregados
-              </span>
-              <div className="relative h-4 flex-1 overflow-hidden rounded-full bg-muted/60">
-                <div
-                  className="h-full rounded-full bg-emerald-500 transition-all"
-                  style={{
-                    width: `${Math.max((countEntregados / maxStatusCount) * 100, countEntregados > 0 ? 8 : 2)}%`,
-                  }}
-                />
-              </div>
-              <span className="w-12 text-right text-base font-bold text-emerald-500">
-                {countEntregados}
-              </span>
-            </button>
-
-            {/* Barra Cancelados */}
-            <button
-              type="button"
-              onClick={() => setStatusFilter("cancelado")}
-              className={`group flex w-full cursor-pointer items-center gap-3 rounded-lg p-2 text-left transition-all hover:bg-muted/50 ${statusFilter === "cancelado" ? "bg-destructive/10 ring-1 ring-destructive" : ""}`}
-            >
-              <span className="w-24 text-xs font-medium text-muted-foreground group-hover:text-foreground">
-                Cancelados
-              </span>
-              <div className="relative h-4 flex-1 overflow-hidden rounded-full bg-muted/60">
-                <div
-                  className="h-full rounded-full bg-destructive transition-all"
-                  style={{
-                    width: `${Math.max((countCancelados / maxStatusCount) * 100, countCancelados > 0 ? 8 : 2)}%`,
-                  }}
-                />
-              </div>
-              <span className="w-12 text-right text-base font-bold text-destructive">
-                {countCancelados}
-              </span>
-            </button>
-          </div>
-
-          <div className="flex items-center justify-between border-t border-border/60 pt-2 text-xs text-muted-foreground">
-            <span>
-              Filtro actual:{" "}
-              <strong className="text-foreground uppercase">
-                {STATUS_FILTER_LABELS[statusFilter]}
-              </strong>
-            </span>
-            {statusFilter !== "all" && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setStatusFilter("all")}
-                className="h-6 gap-1 px-2 text-xs font-medium hover:bg-muted"
-              >
-                <IconX className="size-3" />
-                Limpiar filtro de estado
-              </Button>
-            )}
-          </div>
-        </div>
-
-        {/* Métodos de Pago y Filtro Rápido */}
-        <div className="flex flex-col justify-between rounded-xl border border-border bg-card p-4">
-          <div className="mb-2 flex items-center justify-between">
-            <h2 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
-              Métodos de Pago
-            </h2>
-            <span className="text-sm font-semibold text-muted-foreground">
-              Pedidos totales:{" "}
-              <span className="text-base font-bold text-foreground">
-                {totalOrders}
-              </span>
-            </span>
-          </div>
-
-          <div className="my-2 grid grid-cols-2 gap-3">
-            <div className="flex flex-col justify-between rounded-lg border border-border/50 bg-muted/40 p-3">
-              <span className="text-[11px] font-medium text-muted-foreground">
-                Cuenta Corriente
-              </span>
-              <span className="mt-1 text-xl font-bold text-foreground">
-                {countCC}
-              </span>
-            </div>
-            <div className="flex flex-col justify-between rounded-lg border border-border/50 bg-muted/40 p-3">
-              <span className="text-[11px] font-medium text-muted-foreground">
-                Contado
-              </span>
-              <span className="mt-1 text-xl font-bold text-foreground">
-                {countContado}
-              </span>
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-1.5 border-t border-border pt-3">
-            <span className="text-[11px] text-muted-foreground">
-              Filtro rápido de pago:
-            </span>
-            <div className="grid grid-cols-3 gap-1.5">
-              <Button
-                variant={paymentFilter === "all" ? "default" : "outline"}
-                size="sm"
-                className={`h-7 text-xs ${paymentFilter === "all" ? "font-semibold shadow-sm" : "text-muted-foreground"}`}
-                onClick={() => setPaymentFilter("all")}
-              >
-                Todos
-              </Button>
-              <Button
-                variant={
-                  paymentFilter === "cuenta-corriente" ? "default" : "outline"
-                }
-                size="sm"
-                className={`h-7 text-xs ${paymentFilter === "cuenta-corriente" ? "font-semibold shadow-sm" : "text-muted-foreground"}`}
-                onClick={() => setPaymentFilter("cuenta-corriente")}
-              >
-                Cta. Cte.
-              </Button>
-              <Button
-                variant={paymentFilter === "contado" ? "default" : "outline"}
-                size="sm"
-                className={`h-7 text-xs ${paymentFilter === "contado" ? "font-semibold shadow-sm" : "text-muted-foreground"}`}
-                onClick={() => setPaymentFilter("contado")}
-              >
-                Contado
-              </Button>
-            </div>
-          </div>
-        </div>
+        {/* Status Distribution Bar Chart */}
+        <OrderStatusDistribution
+          orders={orders}
+          selectedStatus={statusFilter}
+          onSelectStatus={handleStatusChange}
+        />
       </div>
 
-      {/* TABLA DE SEGUIMIENTO */}
-      <div className="flex flex-col gap-4 rounded-xl border border-border bg-card p-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <Input
-            placeholder="Buscar por ID, cliente o dirección..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="h-9 max-w-md text-xs"
-          />
-          <span className="text-xs text-muted-foreground">
-            Mostrando{" "}
-            <strong className="text-foreground">{filteredOrders.length}</strong>{" "}
-            pedidos en seguimiento
-          </span>
+      {/* FILTER CONTROLS BAR */}
+      <OrdersFiltersBar
+        searchTerm={searchTerm}
+        onSearchChange={handleSearchChange}
+        statusFilter={statusFilter}
+        onStatusChange={handleStatusChange}
+        paymentFilter={paymentFilter}
+        onPaymentChange={handlePaymentChange}
+        statusCounts={statusCounts}
+        placeholder="Buscar en monitoreo por ID, cliente o dirección..."
+      />
+
+      {/* ORDERS TRACKING TABLE */}
+      {showInitialLoading ? (
+        <div className="flex flex-1 items-center justify-center py-20">
+          <Spinner className="size-6 text-muted-foreground" />
         </div>
+      ) : loadError && orders.length === 0 ? (
+        <Empty className="border border-dashed py-12">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <IconInbox />
+            </EmptyMedia>
+            <EmptyTitle>Error al cargar monitoreo</EmptyTitle>
+            <EmptyDescription>{loadError}</EmptyDescription>
+          </EmptyHeader>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => void loadOrders()}
+          >
+            Reintentar
+          </Button>
+        </Empty>
+      ) : orders.length === 0 ? (
+        <Empty className="border border-dashed py-14">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <IconInbox />
+            </EmptyMedia>
+            <EmptyTitle>Sin pedidos registrados</EmptyTitle>
+            <EmptyDescription>
+              Aún no se han recibido pedidos en el sistema.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      ) : filteredOrders.length === 0 ? (
+        <Empty className="border border-dashed py-14">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <IconInbox />
+            </EmptyMedia>
+            <EmptyTitle>Sin resultados</EmptyTitle>
+            <EmptyDescription>
+              No hay pedidos que coincidan con los filtros seleccionados.
+            </EmptyDescription>
+          </EmptyHeader>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setSearchTerm("")
+              setStatusFilter("all")
+              setPaymentFilter("all")
+            }}
+          >
+            Limpiar filtros
+          </Button>
+        </Empty>
+      ) : (
+        <div className="flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-xs">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/30">
+                <TableHead className="w-28 text-center">ID</TableHead>
+                <TableHead className="text-left">Cliente</TableHead>
+                <TableHead className="text-center">Fecha</TableHead>
+                <TableHead className="text-left">
+                  Dirección de Entrega
+                </TableHead>
+                <TableHead className="text-right">Total</TableHead>
+                <TableHead className="text-center">Pago</TableHead>
+                <TableHead className="text-center">Estado Actual</TableHead>
+                <TableHead className="w-28 text-center">Acción</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {paginatedOrders.map((order) => {
+                const payment = PAYMENT_METHODS.find(
+                  (method) => method.id === order.paymentMethod
+                )
 
-        {loading ? (
-          <div className="flex flex-1 items-center justify-center py-20">
-            <Spinner className="size-6 text-muted-foreground" />
-          </div>
-        ) : error ? (
-          <Empty className="border border-dashed">
-            <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <IconTruck />
-              </EmptyMedia>
-              <EmptyTitle>Error al cargar monitoreo</EmptyTitle>
-              <EmptyDescription>{error}</EmptyDescription>
-            </EmptyHeader>
-          </Empty>
-        ) : filteredOrders.length === 0 ? (
-          <Empty className="border border-dashed">
-            <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <IconTruck />
-              </EmptyMedia>
-              <EmptyTitle>No se encontraron pedidos</EmptyTitle>
-              <EmptyDescription>
-                No hay registros que coincidan con los filtros seleccionados.
-              </EmptyDescription>
-            </EmptyHeader>
-          </Empty>
-        ) : (
-          <div className="overflow-hidden rounded-xl border border-border shadow-xs">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/30">
-                  <TableHead className="w-28">ID</TableHead>
-                  <TableHead>Cliente</TableHead>
-                  <TableHead>Dirección</TableHead>
-                  <TableHead className="text-right">Total</TableHead>
-                  <TableHead>Medio de pago</TableHead>
-                  <TableHead className="text-right">Estado Actual</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredOrders.map((order) => {
-                  const status = getOrderStatus(order.status)
-                  const payment = PAYMENT_METHODS.find(
-                    (method) => method.id === order.paymentMethod
-                  )
-
-                  return (
-                    <TableRow
-                      key={order.id}
-                      className="transition-colors hover:bg-muted/40"
+                return (
+                  <TableRow
+                    key={order.id}
+                    className="cursor-pointer transition-colors hover:bg-muted/40"
+                    onClick={() => setInspectId(order.id)}
+                  >
+                    <TableCell className="text-center font-mono text-xs font-semibold text-muted-foreground">
+                      #{order.id.slice(0, 8).toUpperCase()}
+                    </TableCell>
+                    <TableCell className="text-left font-medium text-foreground">
+                      {order.userName}
+                    </TableCell>
+                    <TableCell className="text-center text-xs whitespace-nowrap text-muted-foreground">
+                      {formatDate(order.createdAt)}
+                    </TableCell>
+                    <TableCell className="max-w-[220px] truncate text-left text-xs text-muted-foreground">
+                      {order.deliveryAddress ?? "Sin dirección especificada"}
+                    </TableCell>
+                    <TableCell className="text-right font-bold text-foreground tabular-nums">
+                      {formatCurrency(order.subtotal)}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Badge variant="outline">
+                        {payment?.label ?? order.paymentMethod}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <OrderStatusBadge status={order.status} />
+                    </TableCell>
+                    <TableCell
+                      className="text-center"
+                      onClick={(e) => e.stopPropagation()}
                     >
-                      <TableCell className="font-mono text-xs font-semibold text-muted-foreground">
-                        #{order.id.slice(0, 8).toUpperCase()}
-                      </TableCell>
-                      <TableCell className="font-medium text-foreground">
-                        {order.userName}
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {order.deliveryAddress ?? "Sin dirección especificada"}
-                      </TableCell>
-                      <TableCell className="text-right font-bold text-foreground tabular-nums">
-                        {formatCurrency(order.subtotal)}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">
-                          {payment?.label ?? order.paymentMethod}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Badge variant={status.tone}>{status.label}</Badge>
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
-          </div>
-        )}
-      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setInspectId(order.id)}
+                        className="h-8 gap-1 px-2.5 text-xs font-medium text-muted-foreground hover:text-foreground"
+                      >
+                        <IconEye className="size-3.5" aria-hidden />
+                        <span>Detalle</span>
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
+            </TableBody>
+          </Table>
+
+          {/* Table Pagination */}
+          <OrdersPagination
+            currentPage={safeCurrentPage}
+            totalPages={totalPages}
+            totalItems={filteredOrders.length}
+            pageSize={PAGE_SIZE}
+            onPageChange={setCurrentPage}
+          />
+        </div>
+      )}
+
+      {/* Order Detail Modal Inspection */}
+      {inspectOrder ? (
+        <OrderDetailDialog
+          open
+          onOpenChange={(open) => {
+            if (!open) {
+              setInspectId(null)
+              setItemsError(null)
+            }
+          }}
+          order={inspectOrder}
+          clientName={clientLabel(inspectOrder)}
+          isLoadingItems={isLoadingItems}
+          itemsError={itemsError}
+          onRetryItems={() => {
+            setItemsError(null)
+            void loadOrderItems(inspectOrder.id)
+          }}
+        />
+      ) : null}
     </div>
   )
 }

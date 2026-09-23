@@ -28,6 +28,7 @@ import type {
 import { selectOrdersForStatus, useOrdersStore } from "@/orders/store"
 import { CancelDeliveryDialog } from "@/orders/ui/cancel-delivery-dialog"
 import { OrderDetailDialog } from "@/orders/ui/order-detail-dialog"
+import { OrdersPagination } from "@/orders/ui/orders-pagination"
 import { RegisterDeliveryDialog } from "@/orders/ui/register-delivery-dialog"
 
 const errorMessage = (error: unknown, fallback: string): string =>
@@ -115,6 +116,7 @@ export function AdminLogisticaPage() {
   const clearFilters = () => {
     setPaymentFilter("todos")
     setSearch("")
+    setCurrentPage(1)
   }
 
   const ordersForStatus = useMemo(() => {
@@ -133,6 +135,35 @@ export function AdminLogisticaPage() {
       ),
     [ordersForStatus, paymentFilter, search]
   )
+
+  const [currentPage, setCurrentPage] = useState(1)
+  const PAGE_SIZE = 8
+
+  const handleSearchChange = (value: string) => {
+    setSearch(value)
+    setCurrentPage(1)
+  }
+
+  const handleStatusFilterChange = (value: string) => {
+    if (value) {
+      setStatusFilter(value as LogisticsStatusFilter)
+      setCurrentPage(1)
+    }
+  }
+
+  const handlePaymentFilterChange = (value: string) => {
+    if (value) {
+      setPaymentFilter(value as PaymentFilter)
+      setCurrentPage(1)
+    }
+  }
+
+  const totalPages = Math.max(1, Math.ceil(filteredOrders.length / PAGE_SIZE))
+  const safeCurrentPage = Math.min(currentPage, totalPages)
+  const paginatedOrders = useMemo(() => {
+    const startIndex = (safeCurrentPage - 1) * PAGE_SIZE
+    return filteredOrders.slice(startIndex, startIndex + PAGE_SIZE)
+  }, [filteredOrders, safeCurrentPage])
 
   const [registerId, setRegisterId] = useState<string | null>(null)
   const [cancelId, setCancelId] = useState<string | null>(null)
@@ -284,7 +315,7 @@ export function AdminLogisticaPage() {
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <SearchInput
                 value={search}
-                onChange={setSearch}
+                onChange={handleSearchChange}
                 placeholder="Buscar por ID o cliente…"
                 ariaLabel="Buscar pedidos por ID o cliente"
                 className="sm:max-w-xs"
@@ -294,9 +325,7 @@ export function AdminLogisticaPage() {
                 variant="outline"
                 size="sm"
                 value={statusFilter}
-                onValueChange={(value) => {
-                  if (value) setStatusFilter(value as LogisticsStatusFilter)
-                }}
+                onValueChange={handleStatusFilterChange}
                 className="flex-wrap justify-start"
               >
                 {STATUS_FILTERS.map((filter) => (
@@ -313,9 +342,7 @@ export function AdminLogisticaPage() {
                 variant="outline"
                 size="sm"
                 value={paymentFilter}
-                onValueChange={(value) => {
-                  if (value) setPaymentFilter(value as PaymentFilter)
-                }}
+                onValueChange={handlePaymentFilterChange}
                 className="flex-wrap justify-start"
               >
                 {PAYMENT_FILTERS.map((filter) => (
@@ -403,18 +430,28 @@ export function AdminLogisticaPage() {
             </Button>
           </Empty>
         ) : (
-          <ul className="flex flex-col gap-3">
-            {filteredOrders.map((order) => (
-              <li key={order.id}>
-                <DeliveryOrderCard
-                  order={order}
-                  onShowDetails={openDetails}
-                  onRegisterDelivery={openRegister}
-                  onCancel={openCancel}
-                />
-              </li>
-            ))}
-          </ul>
+          <div className="flex flex-col gap-3">
+            <ul className="flex flex-col gap-3">
+              {paginatedOrders.map((order) => (
+                <li key={order.id}>
+                  <DeliveryOrderCard
+                    order={order}
+                    onShowDetails={openDetails}
+                    onRegisterDelivery={openRegister}
+                    onCancel={openCancel}
+                  />
+                </li>
+              ))}
+            </ul>
+
+            <OrdersPagination
+              currentPage={safeCurrentPage}
+              totalPages={totalPages}
+              totalItems={filteredOrders.length}
+              pageSize={PAGE_SIZE}
+              onPageChange={setCurrentPage}
+            />
+          </div>
         )}
       </section>
 
