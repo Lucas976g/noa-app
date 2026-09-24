@@ -28,12 +28,14 @@ type ErrorEnvelope = {
 
 export function resolveApiUrl(path: string): string {
   if (path.startsWith("http")) return path
-  // En desarrollo, usamos rutas relativas para que el proxy de Vite gestione las cookies en localhost
-  if (import.meta.env.DEV) {
-    return path.startsWith("/") ? path : `/${path}`
+  // Usamos rutas relativas por defecto tanto en desarrollo (proxy de Vite) como en producción (rewrites de Vercel).
+  // Esto elimina problemas de CORS y bloqueo de cookies cross-site en navegadores modernos.
+  // Solo se prepende VITE_API_URL si se fuerza explícitamente con VITE_DIRECT_API="true".
+  if (import.meta.env.VITE_DIRECT_API === "true") {
+    const baseUrl = (import.meta.env.VITE_API_URL ?? "").replace(/\/$/, "")
+    return `${baseUrl}${path.startsWith("/") ? path : `/${path}`}`
   }
-  const baseUrl = import.meta.env.VITE_API_URL ?? ""
-  return `${baseUrl}${path.startsWith("/") ? path : `/${path}`}`
+  return path.startsWith("/") ? path : `/${path}`
 }
 
 function readError(

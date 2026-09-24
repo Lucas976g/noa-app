@@ -3,8 +3,11 @@
     { "source": "/auth/:path*", "destination": "https://noa-api-wzmp.onrender.com/auth/:path*" },
     { "source": "/products/:path*", "destination": "https://noa-api-wzmp.onrender.com/products/:path*" },
     { "source": "/orders/:path*", "destination": "https://noa-api-wzmp.onrender.com/orders/:path*" },
+    { "source": "/order/:path*", "destination": "https://noa-api-wzmp.onrender.com/order/:path*" },
     { "source": "/clients/:path*", "destination": "https://noa-api-wzmp.onrender.com/clients/:path*" },
     { "source": "/collections/:path*", "destination": "https://noa-api-wzmp.onrender.com/collections/:path*" },
+    { "source": "/inventory/:path*", "destination": "https://noa-api-wzmp.onrender.com/inventory/:path*" },
+    { "source": "/reports/:path*", "destination": "https://noa-api-wzmp.onrender.com/reports/:path*" },
     { "source": "/((?!assets/).*)", "destination": "/index.html" }
   ]
 }

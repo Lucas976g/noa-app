@@ -31,11 +31,23 @@ export default defineConfig(({ mode }) => {
           target: apiUrl,
           changeOrigin: true,
         },
+        "/order": {
+          target: apiUrl,
+          changeOrigin: true,
+        },
         "/clients": {
           target: apiUrl,
           changeOrigin: true,
         },
         "/collections": {
+          target: apiUrl,
+          changeOrigin: true,
+        },
+        "/inventory": {
+          target: apiUrl,
+          changeOrigin: true,
+        },
+        "/reports": {
           target: apiUrl,
           changeOrigin: true,
         },
